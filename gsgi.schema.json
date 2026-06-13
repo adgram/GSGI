@@ -1,0 +1,938 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/adgram/GSGI/main/gsgi-1.0.schema.json",
+  "title": "GSGI",
+  "description": "General Simple Geometry Information — JSON Schema Validation",
+  "type": "object",
+  "required": ["gsgi", "properties", "entities"],
+  "properties": {
+    "gsgi": {
+      "type": "string",
+      "enum": ["1.0"],
+      "description": "Format version"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Document summary"
+    },
+    "author": {
+      "type": "string",
+      "description": "Document author"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation time (ISO 8601)"
+    },
+    "modified": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last modified time (ISO 8601)"
+    },
+    "properties": {
+      "$ref": "#/$defs/documentProperties"
+    },
+    "layers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/layer" }
+    },
+    "text_styles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/textStyle" }
+    },
+    "linetypes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/linetype" }
+    },
+    "blocks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/block" }
+    },
+    "entities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entity" }
+    },
+    "groups": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/group" }
+    },
+    "descriptions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/description" }
+    },
+    "ext_derive": {
+      "type": "object",
+      "description": "Extended point derivation methods, key is method name, value is the definition",
+      "additionalProperties": { "$ref": "#/$defs/extDeriveEntry" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "point": {
+      "type": "array",
+      "description": "Coordinate [x, y]",
+      "items": [
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "pointArray": {
+      "type": "array",
+      "description": "Vertex array [[x,y], ...]",
+      "items": { "$ref": "#/$defs/point" },
+      "minItems": 1
+    },
+    "idRef": {
+      "type": "string",
+      "pattern": "^[a-zA-Z_\\u0080-\\uFFFF][a-zA-Z0-9_\\-\\u0080-\\uFFFF]{0,127}$",
+      "description": "ID reference (Unicode supported)"
+    },
+    "idString": {
+      "type": "string",
+      "pattern": "^[a-zA-Z_\\u0080-\\uFFFF][a-zA-Z0-9_\\-\\u0080-\\uFFFF]{0,127}$",
+      "description": "Unique identifier (Unicode supported)"
+    },
+    "color": {
+      "oneOf": [
+        { "type": "integer", "minimum": 1, "maximum": 255, "description": "ACI color index" },
+        { "type": "string", "pattern": "^#[0-9a-fA-F]{6,8}$", "description": "Hex RGB/RGBA" },
+        { "type": "string", "enum": ["ByLayer", "ByBlock"] }
+      ],
+      "description": "Color: ACI index / Hex RGB / ByLayer / ByBlock"
+    },
+    "documentProperties": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "string",
+          "enum": ["mm", "cm", "m", "inch", "ft"],
+          "default": "mm"
+        },
+        "scale": {
+          "type": "number",
+          "default": 1.0,
+          "minimum": 0.001
+        },
+        "coord_precision": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 0,
+          "maximum": 12,
+          "description": "Coordinate decimal precision"
+        },
+        "naming": {
+          "type": "object",
+          "description": "Global naming convention",
+          "properties": {
+            "id_pattern": {
+              "type": "string",
+              "default": "^[a-zA-Z_\\u0080-\\uFFFF][a-zA-Z0-9_\\-\\u0080-\\uFFFF]{0,127}$",
+              "description": "ID regex constraint (full Unicode support)"
+            },
+            "reserved_prefix": {
+              "type": "string",
+              "default": "_gsgi_",
+              "description": "System reserved ID prefix"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "layer": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "color": { "$ref": "#/$defs/color" },
+        "linetype": {
+          "type": "string",
+          "default": "CONTINUOUS"
+        },
+        "visible": {
+          "type": "boolean",
+          "default": true
+        },
+        "frozen": {
+          "type": "boolean",
+          "default": false
+        },
+        "locked": {
+          "type": "boolean",
+          "default": false
+        },
+        "printable": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "transform": {
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "2×3 affine transform matrix [[a, b, tx], [c, d, ty]], formula: x'=a*x+b*y+tx, y'=c*x+d*y+ty",
+          "items": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        {
+          "type": "object",
+          "description": "Affine transform object form",
+          "required": ["matrix"],
+          "properties": {
+            "matrix": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": { "type": "number" },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "textStyle": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "font": { "type": "string", "default": "txt" },
+        "height": { "type": "number", "default": 2.5 },
+        "width_factor": { "type": "number", "default": 1.0 },
+        "oblique_angle": { "type": "number", "default": 0 }
+      },
+      "additionalProperties": false
+    },
+    "linetype": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "description": { "type": "string" },
+        "pattern": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Linetype pattern (positive=dash, negative=gap, 0=dot)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "commonFields": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "type": { "type": "string" },
+        "layer": { "$ref": "#/$defs/idRef" },
+        "transform": { "$ref": "#/$defs/transform" },
+        "color": { "$ref": "#/$defs/color" },
+        "lineweight": {
+          "type": "integer",
+          "minimum": -3,
+          "maximum": 211
+        },
+        "linetype": { "type": "string" },
+        "visible": { "type": "boolean" },
+        "space": {
+          "type": "string",
+          "enum": ["model", "paper"],
+          "default": "model"
+        },
+        "scale": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Render scale, only effective for text/mtext/hatch/dimension/table"
+        },
+        "description": { "type": "string" },
+        "represent": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "object", "properties": { "method": { "type": "string" } }, "required": ["method"], "additionalProperties": true }
+          ],
+          "description": "Representation point method: string (self/center/base/origin) or object (corner/bbox/intersect/rule)"
+        },
+        "ref_op": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "object", "properties": { "method": { "type": "string" } }, "required": ["method"], "additionalProperties": true }
+          ],
+          "description": "Offset operation: string (offset/local/link/none) or object (project/closest/rule)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "entity": {
+      "oneOf": [
+        { "$ref": "#/$defs/pointEntity" },
+        { "$ref": "#/$defs/paramPtEntity" },
+        { "$ref": "#/$defs/lineEntity" },
+        { "$ref": "#/$defs/polylineEntity" },
+        { "$ref": "#/$defs/polyarcEntity" },
+        { "$ref": "#/$defs/polycurveEntity" },
+        { "$ref": "#/$defs/circleEntity" },
+        { "$ref": "#/$defs/arcEntity" },
+        { "$ref": "#/$defs/rectangleEntity" },
+        { "$ref": "#/$defs/textEntity" },
+        { "$ref": "#/$defs/blockRefEntity" },
+        { "$ref": "#/$defs/xrefEntity" },
+        { "$ref": "#/$defs/mlineEntity" },
+        { "$ref": "#/$defs/mtextEntity" },
+        { "$ref": "#/$defs/splineFitEntity" },
+        { "$ref": "#/$defs/splineCvEntity" },
+        { "$ref": "#/$defs/tableEntity" },
+        { "$ref": "#/$defs/hatchEntity" },
+        { "$ref": "#/$defs/subsegmentEntity" },
+        { "$ref": "#/$defs/dimensionEntity" },
+        { "$ref": "#/$defs/regionAnnoEntity" },
+        { "$ref": "#/$defs/positionEntity" },
+        { "$ref": "#/$defs/coordSysEntity" },
+        { "$ref": "#/$defs/measureEntity" },
+        { "$ref": "#/$defs/customEntity" }
+      ]
+    },
+    "pointEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "point" },
+            "point": { "$ref": "#/$defs/point" },
+            "ref_pt": { "$ref": "#/$defs/idRef" },
+            "represent": { "const": "self" },
+            "ref_op": { "const": "offset" }
+          },
+          "required": ["point"]
+        }
+      ]
+    },
+    "paramPtEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "param_pt" },
+            "curve_ref": { "$ref": "#/$defs/idRef" },
+            "t": { "type": "number" },
+            "point": { "$ref": "#/$defs/point" },
+            "label": { "type": "string" }
+          },
+          "required": ["curve_ref", "t"]
+        }
+      ]
+    },
+    "lineEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "line" },
+            "start_ref": { "$ref": "#/$defs/idRef" },
+            "end_ref": { "$ref": "#/$defs/idRef" }
+          },
+          "required": ["start_ref", "end_ref"]
+        }
+      ]
+    },
+    "polylineEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "polyline" },
+            "points": { "$ref": "#/$defs/pointArray" },
+            "closed": { "type": "boolean", "default": false }
+          },
+          "required": ["points"]
+        }
+      ]
+    },
+    "polyarcEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "polyarc" },
+            "point_refs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/idRef" },
+              "minItems": 1
+            },
+            "bulges": {
+              "type": "array",
+              "description": "bulges.length must equal point_refs.length, runtime validation",
+              "items": { "type": "number" },
+              "minItems": 1
+            },
+            "closed": { "type": "boolean", "default": false }
+          },
+          "required": ["point_refs", "bulges"]
+        }
+      ]
+    },
+    "polycurveSegment": {
+      "description": "Adjacent segment endpoints must connect: segments[i].end_ref == segments[i+1].start_ref (closed polycurve wraps around)",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "start_ref", "end_ref"],
+          "properties": {
+            "type": { "const": "line" },
+            "start_ref": { "$ref": "#/$defs/idRef" },
+            "end_ref": { "$ref": "#/$defs/idRef" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "center_ref", "r"],
+          "properties": {
+            "type": { "const": "arc" },
+            "center_ref": { "$ref": "#/$defs/idRef" },
+            "r": { "type": "number", "exclusiveMinimum": 0 },
+            "start_angle": { "type": "number", "default": 0 },
+            "end_angle": { "type": "number", "default": 6.2832 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "ref"],
+          "properties": {
+            "type": { "const": "subsegment_ref" },
+            "ref": { "$ref": "#/$defs/idRef" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "ref"],
+          "properties": {
+            "type": { "const": "curve_ref" },
+            "ref": { "$ref": "#/$defs/idRef" },
+            "reverse": { "type": "boolean", "default": false }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "polycurveEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "polycurve" },
+            "segments": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/polycurveSegment" },
+              "minItems": 1
+            },
+            "closed": { "type": "boolean", "default": false }
+          },
+          "required": ["segments"]
+        }
+      ]
+    },
+    "circleEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "circle" },
+            "center_ref": { "$ref": "#/$defs/idRef" },
+            "r": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "required": ["center_ref", "r"]
+        }
+      ]
+    },
+    "arcEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "arc" },
+            "center_ref": { "$ref": "#/$defs/idRef" },
+            "r": { "type": "number", "exclusiveMinimum": 0 },
+            "start_angle": { "type": "number", "default": 0 },
+            "end_angle": { "type": "number", "default": 6.2832 }
+          },
+          "required": ["center_ref", "r"]
+        }
+      ]
+    },
+    "rectangleEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "rectangle" },
+            "min_ref": { "$ref": "#/$defs/idRef" },
+            "max_ref": { "$ref": "#/$defs/idRef" }
+          },
+          "required": ["min_ref", "max_ref"]
+        }
+      ]
+    },
+    "textEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "text" },
+            "position_ref": { "$ref": "#/$defs/idRef" },
+            "text": { "type": "string" },
+            "height": { "type": "number", "default": 2.5 },
+            "rotation": { "type": "number", "default": 0 }
+          },
+          "required": ["position_ref", "text"]
+        }
+      ]
+    },
+    "blockRefEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "block_ref" },
+            "block_id": { "$ref": "#/$defs/idRef" },
+            "position_ref": { "$ref": "#/$defs/idRef" },
+            "rotation": { "type": "number", "default": 0 },
+            "scale_x": { "type": "number", "default": 1 },
+            "scale_y": { "type": "number", "default": 1 }
+          },
+          "required": ["block_id", "position_ref"]
+        }
+      ]
+    },
+    "xrefEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "xref" },
+            "file_path": { "type": "string" },
+            "block_id": { "$ref": "#/$defs/idRef" },
+            "position_ref": { "$ref": "#/$defs/idRef" },
+            "rotation": { "type": "number", "default": 0 },
+            "scale_x": { "type": "number", "default": 1 },
+            "scale_y": { "type": "number", "default": 1 }
+          },
+          "required": ["file_path", "position_ref"]
+        }
+      ]
+    },
+    "mlineEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "mline" },
+            "point_refs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/idRef" },
+              "minItems": 1
+            },
+            "elements": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["offset"],
+                "properties": {
+                  "offset": { "type": "number" },
+                  "color": { "$ref": "#/$defs/color" },
+                  "linetype": { "type": "string" }
+                },
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "closed": { "type": "boolean", "default": false },
+            "scale": { "type": "number", "default": 1.0 }
+          },
+          "required": ["point_refs", "elements"]
+        }
+      ]
+    },
+    "mtextEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "mtext" },
+            "position_ref": { "$ref": "#/$defs/idRef" },
+            "width": { "type": "number" },
+            "text": { "type": "string" },
+            "height": { "type": "number", "default": 2.5 },
+            "style": { "type": "string", "default": "STANDARD" },
+            "rotation": { "type": "number", "default": 0 },
+            "attachment": {
+              "type": "string",
+              "enum": ["top_left", "top_center", "top_right", "middle_left", "middle_center", "middle_right", "bottom_left", "bottom_center", "bottom_right"],
+              "default": "top_left"
+            }
+          },
+          "required": ["position_ref", "width", "text"]
+        }
+      ]
+    },
+    "splineFitEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "spline_fit" },
+            "fit_point_refs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/idRef" },
+              "minItems": 1
+            },
+            "degree": { "type": "integer", "enum": [2, 3], "default": 3 },
+            "closed": { "type": "boolean", "default": false },
+            "tolerance": { "type": "number", "default": 0.0 }
+          },
+          "required": ["fit_point_refs"]
+        }
+      ]
+    },
+    "splineCvEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "spline_cv" },
+            "control_point_refs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/idRef" },
+              "minItems": 1
+            },
+            "knots": {
+              "type": "array",
+              "description": "knots.length = control_point_refs.length + degree + 1, runtime validation",
+              "items": { "type": "number" },
+              "minItems": 2
+            },
+            "weights": {
+              "type": "array",
+              "description": "weights.length = control_point_refs.length, runtime validation",
+              "items": { "type": "number" },
+              "minItems": 1
+            },
+            "degree": { "type": "integer", "default": 3 },
+            "closed": { "type": "boolean", "default": false }
+          },
+          "required": ["control_point_refs"]
+        }
+      ]
+    },
+    "tableEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "table" },
+            "position_ref": { "$ref": "#/$defs/idRef" },
+            "width": { "type": "number" },
+            "height": { "type": "number" },
+            "col_widths": {
+              "type": "array",
+              "items": { "type": "number" }
+            },
+            "row_heights": {
+              "type": "array",
+              "items": { "type": "number" }
+            },
+            "style": { "type": "string", "default": "STANDARD" },
+            "text_height": { "type": "number", "default": 2.5 },
+            "markdown": { "type": "string" },
+            "merges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["row", "col"],
+                "properties": {
+                  "row": { "type": "integer", "minimum": 0 },
+                  "col": { "type": "integer", "minimum": 0 },
+                  "rowspan": { "type": "integer", "minimum": 1, "default": 1 },
+                  "colspan": { "type": "integer", "minimum": 1, "default": 1 },
+                  "text": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["position_ref", "markdown"]
+        }
+      ]
+    },
+    "hatchEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "hatch" },
+            "pattern": { "type": "string" },
+            "color": { "$ref": "#/$defs/color" },
+            "angle": { "type": "number", "default": 0 },
+            "scale": { "type": "number", "default": 1.0 },
+            "boundaries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["outer_ref"],
+                "properties": {
+                  "outer_ref": { "$ref": "#/$defs/idRef" },
+                  "island_refs": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/idRef" }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "associative": { "type": "boolean", "default": true }
+          },
+          "required": ["pattern", "boundaries"]
+        }
+      ]
+    },
+    "subsegmentEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "subsegment" },
+            "curve_ref": { "$ref": "#/$defs/idRef" },
+            "from_t": { "type": "number" },
+            "to_t": { "type": "number" },
+            "from_point": { "$ref": "#/$defs/point" },
+            "to_point": { "$ref": "#/$defs/point" },
+            "label": { "type": "string" }
+          },
+          "required": ["curve_ref", "from_t", "to_t"]
+        }
+      ]
+    },
+    "dimensionEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "dimension" },
+            "p1_ref": { "$ref": "#/$defs/idRef" },
+            "p2_ref": { "$ref": "#/$defs/idRef" },
+            "measurement": { "type": "number" },
+            "text": { "type": "string" },
+            "dim_line_offset": { "type": "number", "default": 10 },
+            "category": {
+              "type": "string",
+              "enum": ["horizontal", "vertical", "aligned"],
+              "default": "aligned"
+            }
+          },
+          "required": ["p1_ref", "p2_ref"]
+        }
+      ]
+    },
+    "regionAnnoEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "region_anno" },
+            "edges_refs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/idRef" },
+              "minItems": 1
+            },
+            "area": { "type": "number" },
+            "area_text": { "type": "string" },
+            "contained_entities": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/idRef" }
+            },
+            "label": { "type": "string" }
+          },
+          "required": ["edges_refs"]
+        }
+      ]
+    },
+    "positionEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "position" },
+            "kind": {
+              "type": "string",
+              "enum": ["constraint", "text", "relation"]
+            },
+            "ref_a": { "$ref": "#/$defs/idRef" },
+            "ref_b": { "$ref": "#/$defs/idRef" },
+            "value": { "type": "number" },
+            "operator": {
+              "type": "string",
+              "enum": [">=", "<=", ">", "<", "=="]
+            },
+            "datum": {
+              "type": "string",
+              "enum": ["point", "csys", "line", "region", "rect"]
+            },
+            "relationship": { "type": "string" },
+            "params": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": ["kind"]
+        }
+      ]
+    },
+    "coordSysEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "coord_sys" },
+            "origin_ref": { "$ref": "#/$defs/idRef" },
+            "rotation": { "type": "number", "default": 0 },
+            "visible": { "type": "boolean", "default": false }
+          },
+          "required": ["origin_ref"]
+        }
+      ]
+    },
+    "customEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "custom_entity" },
+            "entity_type": { "type": "string" },
+            "properties": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": ["entity_type"]
+        }
+      ]
+    },
+    "measureEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/commonFields" },
+        {
+          "properties": {
+            "type": { "const": "measure" },
+            "kind": {
+              "type": "string",
+              "enum": ["distance", "length", "area", "angle"]
+            },
+            "ref_a": { "$ref": "#/$defs/idRef" },
+            "ref_b": { "$ref": "#/$defs/idRef" }
+          },
+          "required": ["kind", "ref_a"]
+        }
+      ]
+    },
+    "extDeriveEntry": {
+      "type": "object",
+      "required": ["for"],
+      "properties": {
+        "for": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "description": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "desc": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "block": {
+      "type": "object",
+      "required": ["id", "entities"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "name": { "type": "string" },
+        "base_point": {
+          "$ref": "#/$defs/point",
+          "default": [0, 0]
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "not": {
+              "anyOf": [
+                { "properties": { "type": { "const": "block_ref" } } },
+                { "properties": { "type": { "const": "xref" } } }
+              ]
+            },
+            "allOf": [
+              { "$ref": "#/$defs/entity" }
+            ]
+          }
+        },
+        "descriptions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/description" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "group": {
+      "type": "object",
+      "required": ["id", "members"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "name": { "type": "string" },
+        "members": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/idRef" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "description": {
+      "type": "object",
+      "required": ["target", "text"],
+      "properties": {
+        "target": { "$ref": "#/$defs/idRef" },
+        "property": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "text": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
