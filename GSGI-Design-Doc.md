@@ -941,6 +941,7 @@ Region annotation defines a region's outline and area, and can associate entitie
 | `label` | No | — | Region label |
 | `represent` | No | `"center"` | Region geometric center |
 | `ref_op` | No | `"offset"` | Offset stacking when referenced |
+| `operation` | No | — | Marks this region as derived from boolean operations (see below) |
 
 **Semantic convention**:
 - First item of `edges_refs` array is outer boundary, subsequent items are islands (internal holes)
@@ -948,6 +949,21 @@ Region annotation defines a region's outline and area, and can associate entitie
 - Each loop should be closed and non-intersecting
 - Islands must be inside the outer boundary
 - When region outline is entirely composed of existing geometry edges, region annotation itself produces no new lines, only declares the region concept
+
+#### operation Object Structure
+
+| Sub-field | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `op` | string | Yes | Operation type: `"union"`, `"intersect"`, `"difference"`, `"xor"` |
+| `refs` | string[] | Yes | Operation operands, referencing other `region_anno` entity ids, must be ≥2 |
+| `desc` | string | No | Human-readable description (e.g. "Intersection of shadow fan and building footprint") |
+
+**Semantic conventions**:
+- `operation` only declares the derivation source of the region, does not drive computation. Rendering/display uses `edges_refs` as the actual geometry
+- `refs` must reference entities of type `region_anno`
+- Chained references are allowed (A as operand of B, B as operand of C)
+- Circular references are prohibited (implementations should detect and report errors)
+- When `operation` contradicts `edges_refs` content, `edges_refs` is the actual geometry, `operation` is historical semantics only
 
 ### 5.21 position (Position Relationship)
 
@@ -1600,6 +1616,7 @@ Entities within blocks can also carry descriptions:
 | `contained_entities` | string[] | No | — | Entity id list contained within the region |
 | `label` | string | No | — | Region label |
 | `description` | string | No | — | Natural language description |
+| `operation` | object | No | — | Marks this region as derived from boolean operations; see §5.20 `operation` Object Structure |
 
 **Semantic convention**:
 - First item of `edges_refs` array is outer boundary, subsequent items are islands (internal holes)

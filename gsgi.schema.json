@@ -766,7 +766,27 @@
               "type": "array",
               "items": { "$ref": "#/$defs/idRef" }
             },
-            "label": { "type": "string" }
+            "label": { "type": "string" },
+            "operation": {
+              "type": "object",
+              "description": "Mark this region as derived from boolean operations",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "enum": ["union", "intersect", "difference", "xor"]
+                },
+                "refs": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "minItems": 2
+                },
+                "desc": {
+                  "type": "string",
+                  "description": "Human-readable description of the operation"
+                }
+              },
+              "required": ["op", "refs"]
+            }
           },
           "required": ["edges_refs"]
         }

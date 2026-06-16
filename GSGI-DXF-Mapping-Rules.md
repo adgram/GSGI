@@ -251,7 +251,7 @@ GSGI `descriptions` do not directly correspond to DXF standard fields; they use 
 | `GSGI_PARAM` | param_pt parameters `{"curve_ref":"","t":0}` | POINT |
 | `GSGI_POS` | position entity full JSON | Non-graphical entities |
 | `GSGI_XREF` | xref file path `{"file_path":"..."}` | XREF |
-| `GSGI_REGION` | region_anno full JSON `{"area":0,"label":"","contained_entities":[]}` | Boundary mapped from polycurve entities |
+| `GSGI_REGION` | region_anno full JSON `{"area":0,"label":"","contained_entities":[],"operation":{}}` | Boundary mapped from polycurve entities |
 | `GSGI_CSYS` | coord_sys attributes `{"rotation":0}` | UCS |
 
 ### XDATA Format Example
@@ -274,6 +274,12 @@ GSGI_DESC
 GSGI_PARAM
  1000
 {"curve_ref":"E3","t":0.25}
+
+# region_anno boolean operation
+ 1001
+GSGI_REGION
+ 1000
+{"area":250.5,"label":"Shadow-building overlap","contained_entities":["building_A"],"operation":{"op":"intersect","refs":["RGA_shadow_fan","RGA_building"],"desc":"Intersection of shadow fan region and building footprint"}}
 ```
 
 ### Bypass Method
