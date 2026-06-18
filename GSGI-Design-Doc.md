@@ -21,6 +21,7 @@ Uses **JSON** as the serialization format, file extension `.gsgi`.
 ```json
 {
   "gsgi": "1.0",
+  "tags": ["architecture", "parking", "standard"],
   "summary": "This file describes parking space spacing requirements in parking layout specifications",
   "author": "Zhang San",
   "created": "2026-06-04T10:30:00Z",
@@ -44,6 +45,7 @@ Uses **JSON** as the serialization format, file extension `.gsgi`.
 |-------|------|----------|-------------|
 | `gsgi` | string | Yes | Format version, currently `"1.0"` |
 | `summary` | string | No | Document summary, for AI to quickly understand file purpose |
+| `tags` | string[] | No | Document classification tags, recommend 2–6 items, sorted from broad to specific |
 | `author` | string | No | Document author |
 | `created` | string | No | Creation time, ISO 8601 format (e.g. `"2026-06-04T10:30:00Z"`) |
 | `modified` | string | No | Last modified time, ISO 8601 format |
@@ -107,7 +109,7 @@ GSGI adopts the **AutoCAD / DXF World Coordinate System (WCS)** convention:
 | Y axis | Vertical up is positive (opposite to screen Y axis direction) |
 | Z axis | Perpendicular to paper outward is positive (current GSGI 1.0 uses only 2D X/Y) |
 | Origin | World coordinate origin `(0, 0)` defined by the document, typically corresponds to drawing reference point |
-| Angles | In radians, measured from X axis positive direction, **counterclockwise** positive (exception: text/mtext rotation uses degrees) |
+| Angles | In radians, measured from X axis positive direction, **counterclockwise** positive (exception: text rotation uses degrees) |
 | Length | Numeric unit determined by `properties.unit` |
 
 **Convention**: All `[x, y]` coordinates are considered WCS values. Entity transforms are implemented via the [`transform`](#8-transformtransform) matrix without changing the coordinate system attribution of coordinates themselves.
@@ -148,7 +150,8 @@ Color values support the following formats:
   "visible": true,
   "frozen": false,
   "locked": false,
-  "printable": true
+  "printable": true,
+  "description": "默认图层，未指定图层的实体归入此层"
 }
 ```
 
@@ -161,10 +164,11 @@ Color values support the following formats:
 | `frozen` | bool | No | `false` | Freeze state (frozen layers do not participate in generation/calculation) |
 | `locked` | bool | No | `false` | Lock state (locked layers cannot be edited) |
 | `printable` | bool | No | `true` | Whether printable |
+| `description` | string | No | — | Natural language description of the layer's purpose |
 
 ### Text Styles
 
-Text styles define available text formats for `text`, `mtext`, `table`, etc.
+Text styles define available text formats for `text`, `table`, etc.
 
 ```json
 "text_styles": [
@@ -282,9 +286,7 @@ render size               = actual size × entity.scale (render uses only entity
 | Entity Type | Affected Properties | Description |
 |-------------|-------------------|-------------|
 | `text` | `height` | Text height |
-| `mtext` | `height`, line spacing | Text height and proportional line spacing |
 | `linetype` (layer/entity) | `pattern` dash spacing | All linetype dash/gap lengths multiplied by scale |
-| `hatch` | `scale` (pattern density) | Pattern scale density |
 | `dimension` | `dim_line_offset`, arrow size, text height | Dimension geometry scales proportionally |
 | `table` | Row height/column width, `text_height` | Table grid spacing and internal text |
 
@@ -300,24 +302,20 @@ render size               = actual size × entity.scale (render uses only entity
 | `polyline` | Polyline (straight segments only, can be closed) |
 | `polyarc` | Polyline with arc segments (with bulge parameters) |
 | `polycurve` | Composite curve (composed of line/arc/subsegment_ref/curve_ref) |
-| `mline` | Multi-line (multiple parallel lines) |
 | `circle` | Circle |
 | `arc` | Arc |
 | `rectangle` | Rectangle (axis-aligned) |
-| `text` | Single-line text |
-| `mtext` | Multi-line text |
+| `text` | Text (single/multi-line, use `\n` for multi-line) |
 | `spline_fit` | Fit point curve (through a series of fit points) |
 | `spline_cv` | Control point curve (through a series of control points) |
 | `block_ref` | Block reference |
 | `xref` | External reference (references external .gsgi files) |
 | `table` | Table (simplified to markdown format) |
-| `hatch` | Hatch fill area |
 | `subsegment` | Sub-segment (path segment between two parameter points, following the original curve path rather than straight line) |
 | `dimension` | Two-point dimension (definition points, length) |
 | `region_anno` | Region annotation (defines region outline, area, also part of description system, see §10.5) |
 | `position` | Position relationship (invisible, describes/constrains geometric position relationships) |
 | `coord_sys` | Free coordinate system (visible/invisible, defines local coordinate system by position point + rotation angle) |
-| `measure` | Measurement value (invisible, computes geometric quantities for parametric references, see §5.24) |
 
 ---
 
@@ -392,7 +390,7 @@ Defines a point on an existing curve via parameter `t`, not directly referenced 
 |------------|---------|-----------|
 | `line` | `[0, 1]` | Linear interpolation, 0=start, 1=end |
 | `polyline` / `polyarc` | Open: `[0, N]`, Closed: `[0, N)` | Integer part is segment index (0-based), fractional part is within-segment normalized position `[0, 1)`. `N` = number of segments (open=vertex count−1, closed=vertex count, including closing segment). Example: `t=1.5` means midpoint of segment 1 |
-| `arc` | `[0, 1]` | `t = central angle offset / (end_angle − start_angle)`, i.e., central angle ratio; start `t=0`, end `t=1` |
+| `arc` | `[0, 1]` | Arc-length proportional interpolation, `t=0` = start_ref, `t=1` = end_ref (for circular arcs, arc-length ratio equals central angle ratio) |
 | `spline_fit` / `spline_cv` | `[0, 1]` | Normalized curve parameter u |
 
 ### 5.3 line
@@ -459,6 +457,11 @@ A type of polyline that supports arc segments via bulge parameters in addition t
 - Direction: `bulge > 0` CCW, `bulge < 0` CW
 - Radius `r = chord / (2 · sin(θ/2))`
 
+**Bulge to Midpoint (polyarc to 3P arc conversion)**:
+- Chord midpoint `C = ((Sx+Ex)/2, (Sy+Ey)/2)`
+- Perpendicular distance `d = chord/2 · (1−b²) / (2·b)` where `b = bulge`; or equivalently `d = r − cos(θ/2)·r`
+- Arc midpoint `M = C + d · normalize(perp(S→E))` where `perp((dx,dy)) = (−dy, dx)` for `b>0` (CCW), `perp((dx,dy)) = (dy, −dx)` for `b<0` (CW)
+
 ### 5.6 polycurve (Composite Curve)
 
 A continuous path composed of multiple basic segment types. Each segment can be line, arc, subsegment reference, or curve reference.
@@ -469,7 +472,7 @@ A continuous path composed of multiple basic segment types. Each segment can be 
   "type": "polycurve",
   "segments": [
     { "type": "line", "start_ref": "P1", "end_ref": "P2" },
-    { "type": "arc", "center_ref": "P3", "r": 30, "start_angle": 0, "end_angle": 3.1416 },
+    { "type": "arc", "start_ref": "P2", "mid_ref": "P3", "end_ref": "P4" },
     { "type": "subsegment_ref", "ref": "ss1" },
     { "type": "curve_ref", "ref": "E3", "reverse": false }
   ],
@@ -492,11 +495,11 @@ A continuous path composed of multiple basic segment types. Each segment can be 
 | type | Required Fields | Description |
 |------|----------------|-------------|
 | `line` | `start_ref`, `end_ref` | Straight segment |
-| `arc` | `center_ref`, `r`, `start_angle`, `end_angle` | Arc segment |
+| `arc` | `start_ref`, `mid_ref`, `end_ref` | Arc segment (3-point definition, three points uniquely determine a circular arc) |
 | `subsegment_ref` | `ref` | Reference existing subsegment entity id |
 | `curve_ref` | `ref`, `reverse` (optional) | Reference existing curve entity id (line/polyline/polyarc/spline_*/polycurve), `reverse=true` traverses path in reverse |
 
-**Semantic convention**: Segments connect end-to-end in order, each segment's start automatically equals the previous segment's end (no explicit coordinate field needed).
+**Semantic convention**: Segments connect end-to-end in order. For line segments, `start_ref` must equal the previous segment's `end_ref`; for arc segments, `start_ref` must equal the previous segment's `end_ref`, and `end_ref` must equal the next segment's `start_ref` (validation rule: `segments[i].end_ref == segments[i+1].start_ref` for adjacent segments).
 
 ### 5.7 circle
 
@@ -520,13 +523,15 @@ A continuous path composed of multiple basic segment types. Each segment can be 
 
 ### 5.8 arc
 
+Three-point defined circular arc. Three points uniquely determine a circle and the arc segment on it. Points must not be collinear.
+
 ```json
 {
   "id": "E5",
   "type": "arc",
-  "center_ref": "P3", "r": 30,
-  "start_angle": 0,
-  "end_angle": 6.2832,
+  "start_ref": "P1",
+  "mid_ref": "P2",
+  "end_ref": "P3",
   "represent": "center",
   "ref_op": "offset"
 }
@@ -534,12 +539,13 @@ A continuous path composed of multiple basic segment types. Each segment can be 
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `center_ref` | Yes | — | Point entity id referenced for center |
-| `r` | Yes | — | Radius |
-| `start_angle` | No | `0` | Start angle (radians) |
-| `end_angle` | No | `6.2832` | End angle (radians) |
+| `start_ref` | Yes | — | Point entity id referenced for start point |
+| `mid_ref` | Yes | — | Point entity id referenced for mid point (determines arc direction) |
+| `end_ref` | Yes | — | Point entity id referenced for end point |
 | `represent` | No | `"center"` | Point at curve parameter `t=0.5` |
 | `ref_op` | No | `"offset"` | Offset stacking when referenced |
+
+**Mathematical basis**: Three non-collinear points uniquely determine a circumscribed circle. `param_pt.t` semantics remain `[0, 1]` normalized, `t=0` = start, `t=1` = end, linearly mapped along arc length (which equals central angle ratio for circular arcs).
 
 ### 5.9 rectangle
 
@@ -587,6 +593,8 @@ A continuous path composed of multiple basic segment types. Each segment can be 
 | `represent` | No | `"base"` | Base point (insertion point) |
 | `ref_op` | No | `"offset"` | Offset stacking when referenced |
 
+**Multi-line text**: Use `\n` in the `text` field for multi-line content. DXF export: when `text` contains `\n`, exports as `MTEXT`; otherwise exports as `TEXT`.
+
 ### 5.11 block_ref (Block Reference)
 
 ```json
@@ -598,6 +606,9 @@ A continuous path composed of multiple basic segment types. Each segment can be 
   "rotation": 0,
   "scale_x": 1,
   "scale_y": 1,
+  "attrs": {
+    "parking_number": "A1"
+  },
   "represent": "base",
   "ref_op": "offset"
 }
@@ -610,92 +621,13 @@ A continuous path composed of multiple basic segment types. Each segment can be 
 | `rotation` | No | `0` | Rotation angle (radians) |
 | `scale_x` | No | `1` | X scale factor |
 | `scale_y` | No | `1` | Y scale factor |
+| `attrs` | No | — | Attribute override values for this instance |
 | `represent` | No | `"base"` | Base point (insertion point) |
 | `ref_op` | No | `"offset"` | Offset stacking when referenced |
 
-### 5.12 mline (Multi-line)
+**Multi-line text**: Use `\n` in the `text` field for multi-line content. DXF export: when `text` contains `\n`, exports as `MTEXT`; otherwise exports as `TEXT`.
 
-Represents two or more parallel line segments, each segment can independently control color and linetype.
-
-```json
-{
-  "id": "E9",
-  "type": "mline",
-  "point_refs": ["P8", "P9", "P10"],
-  "elements": [
-    { "offset": -0.5, "color": 1, "linetype": "CONTINUOUS" },
-    { "offset": 0.5, "color": 2, "linetype": "CONTINUOUS" }
-  ],
-  "closed": false,
-  "scale": 1.0,
-  "represent": "center",
-  "ref_op": "offset"
-}
-```
-
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `point_refs` | Yes | — | Point entity id array for baseline vertices |
-| `elements` | Yes | — | Parallel element list |
-| `elements[].offset` | Yes | — | Offset from baseline in drawing units (same as `properties.unit`); positive=right side along baseline direction, negative=left side. Actual offset = `offset × scale` |
-| `elements[].color` | No | Inherited | This element's color (int or string), inheritance priority: element color → mline entity color → layer color, see [Color System](#color-system) |
-| `elements[].linetype` | No | Inherited | This element's linetype, inheritance priority same as color |
-| `closed` | No | `false` | Whether closed |
-| `scale` | No | `1.0` | Overall scale (all offsets multiplied by this value) |
-| `represent` | No | `"center"` | Baseline midpoint |
-| `ref_op` | No | `"offset"` | Offset stacking when referenced |
-
-### 5.13 mtext (Multi-line Text)
-
-Supports multiple lines and paragraph-level attributes.
-
-```json
-{
-  "id": "E10",
-  "type": "mtext",
-  "position_ref": "P11",
-  "width": 100,
-  "text": "Parking description:\nStandard parking\nWidth 2500mm",
-  "height": 2.5,
-  "style": "STANDARD",
-  "rotation": 0,
-  "attachment": "top_left",
-  "represent": "base",
-  "ref_op": "offset"
-}
-```
-
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `position_ref` | Yes | — | Point entity id referenced for insertion point |
-| `width` | Yes | — | Paragraph width (text wrap boundary) |
-| `text` | Yes | — | Text content, `\n` for newlines; supports inline formatting codes (see below) |
-| `height` | No | `2.5` | Text height |
-| `style` | No | `"STANDARD"` | Text style name |
-| `rotation` | No | `0` | Rotation angle (degrees) |
-| `attachment` | No | `"top_left"` | Attachment point: `top_left` / `top_center` / `top_right` / `middle_left` / `middle_center` / `middle_right` / `bottom_left` / `bottom_center` / `bottom_right` |
-| `represent` | No | `"base"` | Base point (insertion point) |
-| `ref_op` | No | `"offset"` | Offset stacking when referenced |
-
-**Inline formatting codes** (compatible with DXF MTEXT, optional support):
-
-| Code | Description | Example |
-|------|-------------|---------|
-| `\P` | Paragraph newline (equivalent to `\n`) | `First line\PSecond line` |
-| `\C<n>` | Color index (1–255) | `\C1Red text` |
-| `\H<v>x` | Text height multiplier | `\H1.5xEnlarged` |
-| `\H<v>` | Absolute text height | `\H5;Fixed` |
-| `\W<v>` | Width factor | `\W0.8Condensed` |
-| `\f<font>;` | Font name | `\fArial;text` |
-| `\L ... \l` | Underline on/off | `\LUnderline\l` |
-| `\O ... \o` | Overline on/off | `\OOverline\o` |
-| `\~` | Non-breaking space | `A\~B` |
-| `\\` | Literal backslash | `Path\\` |
-| `{...}` | Local format scope (restores outside `{}`) | `Normal{\C1Red}Normal` |
-
-**Convention**: When formatting codes are not enabled, text content renders literally; AI writing plain text should escape `\` to `\\`.
-
-### 5.14 spline_fit (Fit Point Curve)
+### 5.12 spline_fit (Fit Point Curve)
 
 A smooth curve defined through a series of fit points (passes through all points).
 
@@ -721,7 +653,7 @@ A smooth curve defined through a series of fit points (passes through all points
 | `represent` | No | `"center"` | Curve midpoint |
 | `ref_op` | No | `"offset"` | Offset stacking when referenced |
 
-### 5.15 spline_cv (Control Point Curve)
+### 5.13 spline_cv (Control Point Curve)
 
 A Bezier/B-spline curve defined through control points (curve does not pass through control points, is "pulled" toward them).
 
@@ -749,9 +681,18 @@ A Bezier/B-spline curve defined through control points (curve does not pass thro
 | `represent` | No | `"center"` | Curve midpoint |
 | `ref_op` | No | `"offset"` | Offset stacking when referenced |
 
-### 5.16 table (Table)
+### 5.14 table (Table)
 
-Represented using markdown table syntax. Each cell contains text.
+Represented using markdown table syntax. Cells support prefix markers for non-text content and cell references:
+
+| Prefix | Meaning | Example |
+|--------|---------|---------|
+| None | Plain text | `Angle steel` |
+| `@实体ID` | block_ref — displays the referenced block | `@BR1` |
+| `%实体ID` | xref — displays the referenced external reference | `%XR1` |
+| `^R行C列` | Cell reference — displays content from another cell (row, col 0-based) | `^R0C0` |
+
+Escape with double prefix when literal content starts with `@`/`%`/`^`: `@@x` → `@x`.
 
 ```json
 {
@@ -764,10 +705,7 @@ Represented using markdown table syntax. Each cell contains text.
   "row_heights": [25, 25, 25, 25],
   "style": "STANDARD",
   "text_height": 2.5,
-  "markdown": "| No. | Width(mm) | Length(mm) |\n|-----|-----------|------------|\n| A1  | 2500      | 5000       |\n| A2  | 2500      | 5000       |\n| B1  | 3000      | 6000       |",
-  "merges": [
-    { "row": 0, "col": 0, "rowspan": 1, "colspan": 3, "text": "Parking Dimension Table" }
-  ],
+  "markdown": "| No. | Width(mm) | Length(mm) |\n|-----|-----------|------------|\n| Parking Dimension Table | ^R0C0 | ^R0C0 |\n| A1  | 2500      | 5000       |\n| B1  | @BR1      | 6000       |",
   "represent": "base",
   "ref_op": "offset"
 }
@@ -782,76 +720,17 @@ Represented using markdown table syntax. Each cell contains text.
 | `row_heights` | No | Equal | Row height array |
 | `style` | No | `"STANDARD"` | Text style |
 | `text_height` | No | `2.5` | Text height |
-| `markdown` | Yes | — | Markdown table syntax, first line is header, second line is separator |
-| `merges` | No | — | Merged cell rules |
+| `markdown` | Yes | — | Markdown table syntax with prefix markers for cell types; `^R{r}C{c}` for cell references |
 | `represent` | No | `"base"` | Base point (table top-left) |
 | `ref_op` | No | `"offset"` | Offset stacking when referenced |
 
-**Merged cells (merges)**:
+**Cell reference rules**:
+- `^R{r}C{c}` references another cell in the same table (row `r`, col `c`, 0-based)
+- Any shape of cross-cell reference is supported (not limited to rectangular merges)
+- Reference chains resolve recursively; circular references must be detected and rejected by implementations
+- The `merges` field is **removed** — all cell spanning is expressed via `^R…C…`
 
-```json
-"merges": [
-  { "row": 0, "col": 0, "rowspan": 2, "colspan": 1 },
-  { "row": 0, "col": 1, "rowspan": 1, "colspan": 2, "text": "Dimensions" }
-]
-```
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `row` | Yes | Start row index (0-based) |
-| `col` | Yes | Start column index (0-based) |
-| `rowspan` | No | `1` | Number of rows to merge |
-| `colspan` | No | `1` | Number of columns to merge |
-| `text` | No | — | Merged cell text (overrides markdown content at original position) |
-
-**Semantic convention**:
-- First row as header, second row as separator, third row onward as data
-- Column count consistent with `col_widths`
-- Merged area cells in `markdown` should be left empty
-- Render: first fill by markdown, then apply merges to override merged areas
-
-### 5.17 hatch (Hatch Fill)
-
-```json
-{
-  "id": "E14",
-  "type": "hatch",
-  "pattern": "SOLID",
-  "color": 3,
-  "angle": 0,
-  "scale": 1.0,
-  "boundaries": [
-    {
-      "outer_ref": "pc_outer_1",
-      "island_refs": ["pc_island_1"]
-    }
-  ],
-  "associative": true,
-  "represent": "center",
-  "ref_op": "offset"
-}
-```
-
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `pattern` | Yes | — | Fill pattern name; `"SOLID"` for solid fill, others like `"ANSI31"`, `"AR-CONC"` |
-| `color` | No | Inherited | Fill color (int or string), see [Color System](#color-system) |
-| `angle` | No | `0` | Pattern rotation angle (radians) |
-| `scale` | No | `1.0` | Pattern scale |
-| `boundaries` | Yes | — | Loop group list; each group defines a fill area via polycurve references |
-| `boundaries[].outer_ref` | Yes | — | Polycurve entity id referenced for outer boundary |
-| `boundaries[].island_refs` | No | `[]` | Polycurve entity id array referenced for islands (internal holes) |
-| `associative` | No | `true` | Whether associative with boundaries |
-| `represent` | No | `"center"` | Fill area geometric center |
-| `ref_op` | No | `"offset"` | Offset stacking when referenced |
-
-**Semantic convention**:
-- One `boundaries` array element = one connected region = one outer loop + zero or more inner islands
-- Multiple non-connected regions expressed as multiple loop groups
-- polycurve referenced by `outer_ref` must form a closed path; each `island_refs` item independently closed and should be inside the outer boundary
-- Circular/arc boundaries expressed via polycurve with `type: "arc"` segment (`start_angle=0, end_angle=6.2832` for circle)
-
-### 5.18 subsegment (Sub-segment)
+### 5.15 subsegment (Sub-segment)
 
 A path segment between two parameter points, preserving the original curve path rather than a straight line connection.
 
@@ -881,7 +760,7 @@ A path segment between two parameter points, preserving the original curve path 
 | `represent` | No | `"center"` | Point at subsegment curve parameter `t=(from_t+to_t)/2` |
 | `ref_op` | No | `"offset"` | Offset stacking when referenced |
 
-### 5.19 dimension (Two-point Dimension)
+### 5.16 dimension (Two-point Dimension)
 
 Dimensions the distance between two points. Dimension points are positioned by referencing `point` entities.
 
@@ -904,7 +783,7 @@ Dimensions the distance between two points. Dimension points are positioned by r
 |-------|----------|---------|-------------|
 | `p1_ref` | Yes | — | Point entity id referenced for dimension start |
 | `p2_ref` | Yes | — | Point entity id referenced for dimension end |
-| `measurement` | No | Auto-calculated | Dimension length (value in unit) |
+| `measurement` | Yes | — | Dimension length (value in unit) |
 | `text` | No | `measurement` value | Dimension text |
 | `dim_line_offset` | No | `10` | Dimension line offset distance |
 | `category` | No | `"aligned"` | Dimension type: `horizontal` / `vertical` / `aligned` |
@@ -914,7 +793,7 @@ Dimensions the distance between two points. Dimension points are positioned by r
 **Semantic convention**:
 - When dimension points are on geometry, first define `param_pt`, then define `point` via `ref_pt` referencing that `param_pt`, dimension references that `point`
 
-### 5.20 region_anno (Region Annotation)
+### 5.17 region_anno (Region Annotation)
 
 Region annotation defines a region's outline and area, and can associate entities contained within. It is both an entity type and part of the description system (see [§10.5](#105-region_anno-region-annotation)), together with `dimension`, `position`, and `description` forming four descriptive mechanisms.
 
@@ -927,6 +806,12 @@ Region annotation defines a region's outline and area, and can associate entitie
   "area_text": "25 m²",
   "contained_entities": ["E1", "E2", "E3"],
   "label": "Parking Zone A",
+  "fill": {
+    "pattern": "ANSI31",
+    "color": 3,
+    "angle": 0.785,
+    "scale": 1.0
+  },
   "represent": "center",
   "ref_op": "offset"
 }
@@ -939,6 +824,7 @@ Region annotation defines a region's outline and area, and can associate entitie
 | `area_text` | No | Auto-formatted | Area text description |
 | `contained_entities` | No | — | Entity id list contained within the region |
 | `label` | No | — | Region label |
+| `fill` | No | — | Fill pattern (see [fill Object Structure](#fill-object-structure)) — when present, this region_anno acts as a hatch area |
 | `represent` | No | `"center"` | Region geometric center |
 | `ref_op` | No | `"offset"` | Offset stacking when referenced |
 | `operation` | No | — | Marks this region as derived from boolean operations (see below) |
@@ -949,6 +835,8 @@ Region annotation defines a region's outline and area, and can associate entitie
 - Each loop should be closed and non-intersecting
 - Islands must be inside the outer boundary
 - When region outline is entirely composed of existing geometry edges, region annotation itself produces no new lines, only declares the region concept
+- When `fill` is present, the region_anno additionally defines a visual fill area — the boundary model (`edges_refs`) is shared for both region semantics and fill geometry
+- DXF HATCH is mapped to/from `region_anno` + `fill`
 
 #### operation Object Structure
 
@@ -965,7 +853,23 @@ Region annotation defines a region's outline and area, and can associate entitie
 - Circular references are prohibited (implementations should detect and report errors)
 - When `operation` contradicts `edges_refs` content, `edges_refs` is the actual geometry, `operation` is historical semantics only
 
-### 5.21 position (Position Relationship)
+#### fill Object Structure
+
+When `fill` is present, the region_anno becomes a visual fill area. The boundary geometry is defined by `edges_refs` (shared with region semantics).
+
+| Sub-field | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `pattern` | string | Yes | — | Fill pattern name; `"SOLID"` for solid fill, others like `"ANSI31"`, `"AR-CONC"` |
+| `color` | int/string | No | Inherited | Fill color (ACI index or hex RGB), see [Color System](#color-system) |
+| `angle` | number | No | `0` | Pattern rotation angle (radians) |
+| `scale` | number | No | `1.0` | Pattern scale density |
+
+**Semantic conventions**:
+- `fill` absent or `null` → region_anno is pure semantic region (no visual fill)
+- `fill` present → region_anno additionally defines a hatch area, mapped to DXF `HATCH` on export
+- Multiple disconnected fill regions are expressed as multiple `region_anno` entities
+
+### 5.18 position (Position Relationship)
 
 **Invisible entity**, no graphical representation. Used to describe or constrain positional relationships between two geometry references, or to describe abstract adjacency semantics. **Distance values always refer to the shortest distance between two entities**, not specific points.
 
@@ -1114,7 +1018,7 @@ Supports three modes:
 
 ---
 
-### 5.22 xref (External Reference)
+### 5.19 xref (External Reference)
 
 References geometric content from external `.gsgi` files, similar to `block_ref` but loaded from external files.
 
@@ -1149,7 +1053,7 @@ References geometric content from external `.gsgi` files, similar to `block_ref`
 - Circular external references not supported (A references B, B references A); implementation should detect and error
 - On DXF conversion, xref maps to `XREF` / `INSERT` + XDATA recording external path
 
-### 5.23 coord_sys (Free Coordinate System)
+### 5.20 coord_sys (Free Coordinate System)
 
 Defines a local coordinate system, composed of a position point and a rotation angle. Other entities (e.g. point) can reference this coordinate system via `ref_pt`, interpreting their coordinates as local.
 
@@ -1175,39 +1079,6 @@ Defines a local coordinate system, composed of a position point and a rotation a
 
 **Coordinate system transform**: When a point references this coordinate system, point coordinates convert to WCS: `P_wcs = P_origin + R · P_local`, where `R = [[cosθ, -sinθ], [sinθ, cosθ]]`. Example above θ=0.7854 (45°).
 
----
-
-### 5.24 measure (Measurement)
-
-**Invisible entity**, no graphical representation. Used to compute geometric quantities (distance, length, area, angle), producing numeric values that can be referenced by other entities' parameters.
-
-```json
-{ "id": "M1", "type": "measure", "kind": "distance", "ref_a": "E1", "ref_b": "E2", "represent": "origin", "ref_op": "offset" }
-```
-
-| kind | ref_a | ref_b | Output Description |
-|------|-------|-------|--------------------|
-| `distance` | Entity id | Entity id | Shortest distance between two entities |
-| `length` | Curve entity id | — | Curve length |
-| `area` | Closed region entity id | — | Region area |
-| `angle` | Line entity id | Line entity id | Angle between two lines (degrees) |
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `type` | string | Yes | — | `"measure"` |
-| `kind` | string | Yes | — | Measurement type |
-| `ref_a` | string | Yes | — | Primary reference entity id |
-| `ref_b` | string | No | — | Secondary reference entity id |
-| `represent` | string | No | `"origin"` | No geometric form, falls back to origin |
-| `ref_op` | string | No | `"offset"` | Offset stacking when referenced |
-
-**Semantic convention**:
-- Produces no graphical output, exists only as a parametric numerical layer
-- Returns null if any ref cannot be resolved
-- AI parsing can identify parametric dependencies via `type="measure"`
-
----
-
 ## 6. Block Definitions (blocks)
 
 ```json
@@ -1215,6 +1086,9 @@ Defines a local coordinate system, composed of a position point and a rotation a
   "id": "parking",
   "name": "Parking Space",
   "base_point": [0, 0],
+  "attributes": {
+    "parking_number": { "type": "string", "default": "P" }
+  },
   "entities": [
     {
       "id": "parking_rect",
@@ -1226,7 +1100,7 @@ Defines a local coordinate system, composed of a position point and a rotation a
       "id": "parking_text",
       "type": "text",
       "position": [0, 0],
-      "text": "P",
+      "text": "{parking_number}",
       "height": 500
     }
   ]
@@ -1238,6 +1112,7 @@ Defines a local coordinate system, composed of a position point and a rotation a
 | `id` | string | Yes | Unique identifier, referenced by block_ref. Format follows `properties.naming` |
 | `name` | string | No | Block name (defaults to id) |
 | `base_point` | [number, number] | No | Base point coordinates, default `[0, 0]` |
+| `attributes` | object | No | Declared parameters for parametric block instantiation |
 | `entities` | array | Yes | Entity list within block (auto-generate id if absent) |
 
 Entities within blocks share the same entity type definitions as top-level entities.
@@ -1365,7 +1240,7 @@ Declares how an entity reduces to a representative point. `represent` type: `str
 
 | Entity Type | Calculation Method |
 |-------------|-------------------|
-| line, mline, spline_fit, spline_cv, dimension | Midpoint between two endpoints / first and last parameter points |
+| line, spline_fit, spline_cv, dimension | Midpoint between two endpoints / first and last parameter points |
 | arc | Point at curve parameter `t=0.5` (same as param_pt method) |
 | subsegment | Point at curve parameter `t = (from_t + to_t) / 2` (same as param_pt method) |
 | circle | Directly use point referenced by `center_ref` |
@@ -1374,7 +1249,6 @@ Declares how an entity reduces to a representative point. `represent` type: `str
 | polyline | Arithmetic mean of all vertices |
 | polyarc | Arithmetic mean of all `point_refs` referenced points |
 | polycurve | Arithmetic mean of all segment endpoint coordinates |
-| hatch | Arithmetic mean of all boundary polycurve endpoint coordinates |
 | region_anno | Arithmetic mean of all `edges_refs` polycurve endpoint coordinates |
 | Other types | Arithmetic mean of all definition coordinates (same as default fallback) |
 
@@ -1388,7 +1262,7 @@ Declares how an entity reduces to a representative point. `represent` type: `str
 
 | method | Parameters | Meaning | Formula |
 |--------|-----------|---------|---------|
-| `"corner"` | `param: int` (0‑based) | Take the param-th feature point in entity's definition sequence: line/arc 0=start 1=end; polyline/polyarc/mline 0..(n-1)=vertices; spline_fit/spline_cv 0..(n-1)=fit/control points; polycurve 0..(n-1)=segment endpoints; rectangle 0=min 1=min→max 2=max 3=max→min | `P = entity.pointAt(param)` |
+| `"corner"` | `param: int` (0‑based) | Take the param-th feature point in entity's definition sequence: line/arc 0=start 1=end; polyline/polyarc 0..(n-1)=vertices; spline_fit/spline_cv 0..(n-1)=fit/control points; polycurve 0..(n-1)=segment endpoints; rectangle 0=min 1=min→max 2=max 3=max→min | `P = entity.pointAt(param)` |
 | `"bbox"` | `which: "min" \| "max" \| "center" \| "top_left" \| "top_right" \| "bottom_left" \| "bottom_right"` | Bounding box feature point or corner | `P = bbox(geometry).which` |
 | `"intersect"` | `curve_ref: string` | Reference curve entity id | Intersection of this curve with reference curve; if multiple, take first along this curve's param; no intersection falls back to `"origin"` | `P = intersect(this, curve_ref)` |
 
@@ -1478,8 +1352,6 @@ This is the key design that distinguishes GSGI from ordinary DXF — supporting 
 | `region_anno` entity | Region outline, area, label, and associated entities |
 | `description` | Entity-level / property-level / document-level natural language annotation |
 
-> `measure` entity (§5.22) computes geometric quantities for parametric reference; it belongs to the parametric numerical layer rather than the semantic description layer, so it is not listed in this system.
-
 **Selection rules (check in order, use first match)**:
 
 1. Are there **two specific point entities** needing **graphical dimension annotation** (dimension line + number on drawing)?
@@ -1504,7 +1376,6 @@ This is the key design that distinguishes GSGI from ordinary DXF — supporting 
 | "Parking spacing 30mm and must be ≥30mm" | **Both**: `dimension` marks point distance 30, `position` (`constraint`) records nearest point constraint | Point distance ≠ nearest point distance, two different things |
 | "No obstacle within 50mm of parking" | `position` (`text`) | Plain text abstract description, no structuring needed |
 | "Parking Zone A, area 25m², contains parking E1/E2/E3" | `region_anno` | Region outline + area + containment |
-| "Distance from rectangle R1 center to line L1" | `measure` (`distance`) | Parametric value, referenced by other entity parameters |
 | "Floor material is concrete" | `description` | Non-geometric information |
 
 ### 10.2 Entity-level Description
@@ -1592,7 +1463,7 @@ Entities within blocks can also carry descriptions:
 
 ### 10.5 region_anno (Region Annotation)
 
-**Region annotation** is both an entity type (see [§5.20](#520-region_anno-region-annotation)) and part of the description system. At the description level, it declares the semantic concept of a region (outline, area, label, and associated entities). It produces no new geometric lines, only references existing geometry boundaries to define the region.
+**Region annotation** is both an entity type (see [§5.17](#517-region_anno-region-annotation)) and part of the description system. At the description level, it declares the semantic concept of a region (outline, area, label, and associated entities). It produces no new geometric lines, only references existing geometry boundaries to define the region.
 
 ```json
 {
@@ -1615,8 +1486,9 @@ Entities within blocks can also carry descriptions:
 | `area_text` | string | No | Auto-formatted | Area text description |
 | `contained_entities` | string[] | No | — | Entity id list contained within the region |
 | `label` | string | No | — | Region label |
+| `fill` | object | No | — | Fill pattern definition (see §5.17); when present, this region_anno also serves as a DXF HATCH equivalent |
 | `description` | string | No | — | Natural language description |
-| `operation` | object | No | — | Marks this region as derived from boolean operations; see §5.20 `operation` Object Structure |
+| `operation` | object | No | — | Marks this region as derived from boolean operations; see §5.17 `operation` Object Structure |
 
 **Semantic convention**:
 - First item of `edges_refs` array is outer boundary, subsequent items are islands (internal holes)

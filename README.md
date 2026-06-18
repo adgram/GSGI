@@ -14,9 +14,7 @@ GSGI is an AI-oriented lightweight CAD data exchange format centered on geometri
   **Description System**: Four descriptive mechanisms (`dimension` / `position` / `region_anno` / `description`) for entity-level, property-level, and document-level natural language annotations
 - **取点与组合运算**（`represent` / `ref_op`）：声明式的几何引用链，point 通过 `ref_pt` 链式解析坐标，支持偏移、投影、局部坐标等组合方式
   **Point Derivation & Combination** (`represent` / `ref_op`): Declarative geometry reference chain — points resolve coordinates via `ref_pt` chains, supporting offset, project, local transform, and more
-- **参数化测量**（`measure`）：计算几何量（距离、长度、面积、角度），数值可被其他实体参数引用
-  **Parametric Measurement** (`measure`): Computes geometric quantities (distance, length, area, angle) whose values can be referenced by other entity parameters
-- **25 种实体类型 / 25 Entity Types**: point, line, polyline, polyarc, polycurve, mline, circle, arc, rectangle, text, mtext, spline_fit, spline_cv, block_ref, xref, table, hatch, subsegment, dimension, region_anno, position, coord_sys, measure, param_pt, custom_entity
+- **21 种实体类型 / 21 Entity Types**: point, line, polyline, polyarc, polycurve, circle, arc, rectangle, text, spline_fit, spline_cv, block_ref, xref, table, subsegment, dimension, region_anno, position, coord_sys, param_pt, custom_entity
 - **最小化**：仅含有效几何与描述信息，无 CAD 系统变量、历史记录等元数据噪音
   **Minimal**: Contains only valid geometry and descriptions — no CAD system variables, history, or other metadata noise
 
@@ -29,6 +27,7 @@ A GSGI file is a JSON object with the following top-level structure:
 ```json
 {
   "gsgi": "1.0",
+  "tags": ["建筑", "停车场", "规范"],
   "summary": "本文件描述停车位布置规范中的车位间距要求",
   "author": "张三",
   "created": "2026-06-04T10:30:00Z",

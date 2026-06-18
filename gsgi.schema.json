@@ -15,6 +15,11 @@
       "type": "string",
       "description": "Document summary"
     },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Document classification tags"
+    },
     "author": {
       "type": "string",
       "description": "Document author"
@@ -147,6 +152,7 @@
       "required": ["id"],
       "properties": {
         "id": { "$ref": "#/$defs/idString" },
+        "description": { "type": "string" },
         "color": { "$ref": "#/$defs/color" },
         "linetype": {
           "type": "string",
@@ -253,11 +259,11 @@
           "enum": ["model", "paper"],
           "default": "model"
         },
-        "scale": {
-          "type": "number",
-          "default": 1.0,
-          "description": "Render scale, only effective for text/mtext/hatch/dimension/table"
-        },
+            "scale": {
+              "type": "number",
+              "default": 1.0,
+              "description": "Render scale, only effective for text/dimension/table"
+            },
         "description": { "type": "string" },
         "represent": {
           "oneOf": [
@@ -290,18 +296,14 @@
         { "$ref": "#/$defs/textEntity" },
         { "$ref": "#/$defs/blockRefEntity" },
         { "$ref": "#/$defs/xrefEntity" },
-        { "$ref": "#/$defs/mlineEntity" },
-        { "$ref": "#/$defs/mtextEntity" },
         { "$ref": "#/$defs/splineFitEntity" },
         { "$ref": "#/$defs/splineCvEntity" },
         { "$ref": "#/$defs/tableEntity" },
-        { "$ref": "#/$defs/hatchEntity" },
         { "$ref": "#/$defs/subsegmentEntity" },
         { "$ref": "#/$defs/dimensionEntity" },
         { "$ref": "#/$defs/regionAnnoEntity" },
         { "$ref": "#/$defs/positionEntity" },
         { "$ref": "#/$defs/coordSysEntity" },
-        { "$ref": "#/$defs/measureEntity" },
         { "$ref": "#/$defs/customEntity" }
       ]
     },
@@ -399,13 +401,12 @@
         },
         {
           "type": "object",
-          "required": ["type", "center_ref", "r"],
+          "required": ["type", "start_ref", "mid_ref", "end_ref"],
           "properties": {
             "type": { "const": "arc" },
-            "center_ref": { "$ref": "#/$defs/idRef" },
-            "r": { "type": "number", "exclusiveMinimum": 0 },
-            "start_angle": { "type": "number", "default": 0 },
-            "end_angle": { "type": "number", "default": 6.2832 }
+            "start_ref": { "$ref": "#/$defs/idRef" },
+            "mid_ref": { "$ref": "#/$defs/idRef" },
+            "end_ref": { "$ref": "#/$defs/idRef" }
           },
           "additionalProperties": false
         },
@@ -466,12 +467,11 @@
         {
           "properties": {
             "type": { "const": "arc" },
-            "center_ref": { "$ref": "#/$defs/idRef" },
-            "r": { "type": "number", "exclusiveMinimum": 0 },
-            "start_angle": { "type": "number", "default": 0 },
-            "end_angle": { "type": "number", "default": 6.2832 }
+            "start_ref": { "$ref": "#/$defs/idRef" },
+            "mid_ref": { "$ref": "#/$defs/idRef" },
+            "end_ref": { "$ref": "#/$defs/idRef" }
           },
-          "required": ["center_ref", "r"]
+          "required": ["start_ref", "mid_ref", "end_ref"]
         }
       ]
     },
@@ -513,7 +513,11 @@
             "position_ref": { "$ref": "#/$defs/idRef" },
             "rotation": { "type": "number", "default": 0 },
             "scale_x": { "type": "number", "default": 1 },
-            "scale_y": { "type": "number", "default": 1 }
+            "scale_y": { "type": "number", "default": 1 },
+            "attrs": {
+              "type": "object",
+              "additionalProperties": { "type": ["string", "number", "boolean"] }
+            }
           },
           "required": ["block_id", "position_ref"]
         }
@@ -533,60 +537,6 @@
             "scale_y": { "type": "number", "default": 1 }
           },
           "required": ["file_path", "position_ref"]
-        }
-      ]
-    },
-    "mlineEntity": {
-      "allOf": [
-        { "$ref": "#/$defs/commonFields" },
-        {
-          "properties": {
-            "type": { "const": "mline" },
-            "point_refs": {
-              "type": "array",
-              "items": { "$ref": "#/$defs/idRef" },
-              "minItems": 1
-            },
-            "elements": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": ["offset"],
-                "properties": {
-                  "offset": { "type": "number" },
-                  "color": { "$ref": "#/$defs/color" },
-                  "linetype": { "type": "string" }
-                },
-                "additionalProperties": false
-              },
-              "minItems": 1
-            },
-            "closed": { "type": "boolean", "default": false },
-            "scale": { "type": "number", "default": 1.0 }
-          },
-          "required": ["point_refs", "elements"]
-        }
-      ]
-    },
-    "mtextEntity": {
-      "allOf": [
-        { "$ref": "#/$defs/commonFields" },
-        {
-          "properties": {
-            "type": { "const": "mtext" },
-            "position_ref": { "$ref": "#/$defs/idRef" },
-            "width": { "type": "number" },
-            "text": { "type": "string" },
-            "height": { "type": "number", "default": 2.5 },
-            "style": { "type": "string", "default": "STANDARD" },
-            "rotation": { "type": "number", "default": 0 },
-            "attachment": {
-              "type": "string",
-              "enum": ["top_left", "top_center", "top_right", "middle_left", "middle_center", "middle_right", "bottom_left", "bottom_center", "bottom_right"],
-              "default": "top_left"
-            }
-          },
-          "required": ["position_ref", "width", "text"]
         }
       ]
     },
@@ -658,56 +608,9 @@
             },
             "style": { "type": "string", "default": "STANDARD" },
             "text_height": { "type": "number", "default": 2.5 },
-            "markdown": { "type": "string" },
-            "merges": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": ["row", "col"],
-                "properties": {
-                  "row": { "type": "integer", "minimum": 0 },
-                  "col": { "type": "integer", "minimum": 0 },
-                  "rowspan": { "type": "integer", "minimum": 1, "default": 1 },
-                  "colspan": { "type": "integer", "minimum": 1, "default": 1 },
-                  "text": { "type": "string" }
-                },
-                "additionalProperties": false
-              }
-            }
+            "markdown": { "type": "string" }
           },
           "required": ["position_ref", "markdown"]
-        }
-      ]
-    },
-    "hatchEntity": {
-      "allOf": [
-        { "$ref": "#/$defs/commonFields" },
-        {
-          "properties": {
-            "type": { "const": "hatch" },
-            "pattern": { "type": "string" },
-            "color": { "$ref": "#/$defs/color" },
-            "angle": { "type": "number", "default": 0 },
-            "scale": { "type": "number", "default": 1.0 },
-            "boundaries": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": ["outer_ref"],
-                "properties": {
-                  "outer_ref": { "$ref": "#/$defs/idRef" },
-                  "island_refs": {
-                    "type": "array",
-                    "items": { "$ref": "#/$defs/idRef" }
-                  }
-                },
-                "additionalProperties": false
-              },
-              "minItems": 1
-            },
-            "associative": { "type": "boolean", "default": true }
-          },
-          "required": ["pattern", "boundaries"]
         }
       ]
     },
@@ -745,7 +648,7 @@
               "default": "aligned"
             }
           },
-          "required": ["p1_ref", "p2_ref"]
+          "required": ["p1_ref", "p2_ref", "measurement"]
         }
       ]
     },
@@ -767,6 +670,7 @@
               "items": { "$ref": "#/$defs/idRef" }
             },
             "label": { "type": "string" },
+            "fill": { "$ref": "#/$defs/fill" },
             "operation": {
               "type": "object",
               "description": "Mark this region as derived from boolean operations",
@@ -853,23 +757,6 @@
         }
       ]
     },
-    "measureEntity": {
-      "allOf": [
-        { "$ref": "#/$defs/commonFields" },
-        {
-          "properties": {
-            "type": { "const": "measure" },
-            "kind": {
-              "type": "string",
-              "enum": ["distance", "length", "area", "angle"]
-            },
-            "ref_a": { "$ref": "#/$defs/idRef" },
-            "ref_b": { "$ref": "#/$defs/idRef" }
-          },
-          "required": ["kind", "ref_a"]
-        }
-      ]
-    },
     "extDeriveEntry": {
       "type": "object",
       "required": ["for"],
@@ -904,6 +791,10 @@
           "$ref": "#/$defs/point",
           "default": [0, 0]
         },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/blockAttribute" }
+        },
         "entities": {
           "type": "array",
           "items": {
@@ -922,6 +813,26 @@
           "type": "array",
           "items": { "$ref": "#/$defs/description" }
         }
+      },
+      "additionalProperties": false
+    },
+    "blockAttribute": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["string", "number", "boolean"] },
+        "default": {}
+      },
+      "additionalProperties": false
+    },
+    "fill": {
+      "type": "object",
+      "required": ["pattern"],
+      "properties": {
+        "pattern": { "type": "string" },
+        "color": { "$ref": "#/$defs/color" },
+        "angle": { "type": "number", "default": 0 },
+        "scale": { "type": "number", "default": 1.0 }
       },
       "additionalProperties": false
     },

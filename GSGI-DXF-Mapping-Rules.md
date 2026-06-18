@@ -18,7 +18,7 @@ This document defines the bidirectional mapping rules between GSGI 1.0 and DXF.
 | Transforms | GSGI `transform` matrix is applied to coordinates before writing to DXF; on DXF read, coordinates are extracted and transform is identity |
 | Descriptions | Stored uniformly in XDATA `GSGI_DESC` (see §3) |
 | point resolution | Recursively resolve point.ref_pt chain to final coordinate: param_pt → curve interpolation, coord_sys → local-to-WCS transform | Entity `represent` determines representation point location, `ref_op` determines offset interpretation (see GSGI Design Doc §9) |
-| Angle units | Except text/mtext, GSGI angle fields use radians; DXF uses degrees | GSGI→DXF: rad→deg; DXF→GSGI: deg→rad |
+| Angle units | Except text, GSGI angle fields use radians; DXF uses degrees | GSGI→DXF: rad→deg; DXF→GSGI: deg→rad |
 
 ---
 
@@ -33,24 +33,22 @@ This document defines the bidirectional mapping rules between GSGI 1.0 and DXF.
 | line | LINE | `10,20`=start; `11,21`=end | start_ref/end_ref resolved to coordinates |
 | polyline | LWPOLYLINE | `90`=vertex count; `70`=closed flag; per-vertex `10,20` | Straight segments only |
 | polyarc | LWPOLYLINE | `90`=vertex count; `42`=per-vertex bulge | bulge maps directly |
-| polycurve | LWPOLYLINE/SPLINE | Split by segment type: `line`→LINE, `arc`→ARC, `subsegment_ref`→LWPOLYLINE, `curve_ref`→SPLINE/LINE | Or degrade to sampled LWPOLYLINE |
-| mline | MLINE | Multi-line vertices expanded to point coordinates; element attributes mapped | TODO |
+| polycurve | LWPOLYLINE/SPLINE | Split by segment type: `line`→LINE, `arc`→ARC (compute center+r+angles from 3P), `subsegment_ref`→LWPOLYLINE, `curve_ref`→SPLINE/LINE | Or degrade to sampled LWPOLYLINE |
 | circle | CIRCLE | `10,20`=center; `40`=radius | center_ref resolved |
-| arc | ARC | `10,20`=center; `40`=radius; `50`=start angle; `51`=end angle | Angles rad→deg |
+| arc | ARC | `10,20`=center (computed from 3P circumcenter); `40`=radius; `50`=start angle; `51`=end angle | 3P → center+r+angles via circumcenter formula; angles rad→deg |
 | rectangle | LWPOLYLINE | 4 vertices, `70`=1 (closed) | min_ref/max_ref expanded |
-| text | TEXT | `10,20`=insertion point; `1`=content; `40`=text height; `50`=rotation | position_ref resolved |
-| mtext | MTEXT | `10,20`=insertion point; `1`=content; `40`=text height; `41`=width; `50`=rotation; `71`=attachment | position_ref resolved |
+| text | TEXT / MTEXT | `10,20`=insertion point; `1`=content; `40`=text height; `50`=rotation | position_ref resolved; text with `\n` → MTEXT, without `\n` → TEXT |
 | spline_fit | SPLINE | `210`=normal; `70`=flags; `74`=fit point count; per-point `11,21` | fit_point_refs resolved |
 | spline_cv | SPLINE | `210`=normal; `70`=flags; `72`=control point count; `73`=degree; `40`=knots; `10,20`=control points | control_point_refs resolved |
 | block_ref | INSERT | `2`=block name; `10,20`=insertion point; `50`=rotation; `41,42`=scale | position_ref resolved; rotation rad→deg |
 | xref | XREF | `2`=file name; `10,20`=insertion point; `50`=rotation; `41,42`=scale; file path in XDATA `GSGI_XREF` | position_ref resolved; rotation rad→deg |
 | table | ACAD_TABLE | Extract markdown to table structure | Degrade: LINE+TEXT |
-| hatch | HATCH | `91`=boundary count; `52`=pattern angle; boundaries expanded from `outer_ref`/`island_refs` polycurves | polycurve must be sampled to closed loop; pattern angle rad→deg |
+| region_anno + `fill` | HATCH | `91`=boundary count; `52`=pattern angle; boundaries from `edges_refs` polycurves; `fill.pattern/color/angle/scale` mapped to DXF hatch properties | polycurve must be sampled to closed loop; pattern angle rad→deg; replace previous `hatch` type |
 | subsegment | LWPOLYLINE | Sampled along parent curve as polyline | Sampling density implementation-defined |
 | dimension | DIMENSION | `13,23`=definition point; `14,24`=text point | p1_ref/p2_ref resolved |
-| region_anno | (descriptive system, no independent DXF entity) | Boundary from edges_refs polycurves maps to closed LWPOLYLINE/HATCH; area/label/contained entities in XDATA `GSGI_REGION` | region_anno is both entity and descriptive system in GSGI |
+| region_anno (no `fill`) | (descriptive system, no independent DXF entity) | Boundary from edges_refs polycurves maps to closed LWPOLYLINE; area/label/contained entities in XDATA `GSGI_REGION` | region_anno is both entity and descriptive system in GSGI; without fill it is purely semantic |
+| region_anno (with `fill`) | HATCH | See hatch row above | When fill is present, region_anno drives a HATCH entity |
 | position | No entity | All stored in XDATA `GSGI_POS` | ref_a/ref_b stored as id |
-| measure | No entity | All stored in XDATA (same as position) | Invisible entity |
 | coord_sys | UCS + XDATA | Origin `10,20`=origin_ref coordinates; rotation (rad) in XDATA `GSGI_CSYS` | origin_ref resolved |
 | custom_entity | Custom | Degradation determined by `entity_type` | Default degrade to LWPOLYLINE+TEXT |
 
@@ -115,13 +113,13 @@ LWPOLYLINE
 0.0
 ```
 
-#### hatch (polycurve reference)
+#### region_anno + fill (polycurve reference)
 
 ```dxf
 # GSGI:
-# { "id": "H1", "type": "hatch",
-#   "pattern": "ANSI31",
-#   "boundaries": [{ "outer_ref": "pc_out", "island_refs": ["pc_isl"] }] }
+# { "id": "RA_H1", "type": "region_anno",
+#   "edges_refs": ["pc_out", "pc_isl"],
+#   "fill": { "pattern": "ANSI31", "color": 3, "angle": 0.0, "scale": 1.0 } }
 # { "id": "pc_out", "type": "polycurve", "segments": [...] }
 #
 # DXF output (simplified):
@@ -188,23 +186,22 @@ HATCH
 | LWPOLYLINE (no bulge) | polyline | 4 vertices closed and axis-aligned → rectangle |
 | LWPOLYLINE (with bulge) | polyarc | Generate point array + bulge array |
 | POLYLINE | polyline | Same as LWPOLYLINE |
-| MLINE | mline | Generate point array + elements |
+| MLINE | polyline (multiple) | Degrade to multiple polyline entities, each element becomes an offset polyline |
 | CIRCLE | circle | Generate center point |
-| ARC | arc | Generate center point |
+| ARC | arc | Generate 3 points (start, mid, end) from center+r+angles; see circumcenter formula §5.8 |
 | TEXT | text | Generate position point |
-| MTEXT | mtext | Generate position point |
+| MTEXT | text | Generate position point; multi-line content retains `\n` in `text` field |
 | SPLINE (fit points) | spline_fit | Generate fit point array |
 | SPLINE (control points) | spline_cv | Generate control point array |
 | INSERT | block_ref | Generate position point; block definition stored in blocks |
 | XREF | xref | Generate position point; file path restored from XDATA `GSGI_XREF` |
 | ACAD_TABLE | table | Generate position point; extract grid to markdown |
-| HATCH (hatched) | hatch | Boundary loops generate polycurve; outer_ref + island_refs |
-| HATCH (unhatched) + XDATA `GSGI_REGION` | region_anno | Boundary loops generate polycurve; area/label restored from XDATA |
+| HATCH (hatched) | region_anno + `fill` | Boundary loops generate polycurve → `edges_refs`; pattern/color/angle/scale → `fill` object |
+| HATCH (unhatched) + XDATA `GSGI_REGION` | region_anno | Boundary loops generate polycurve → `edges_refs`; area/label restored from XDATA |
 | DIMENSION | dimension | Generate two points (p1_ref/p2_ref) |
 | LEADER | polyline + text | Degrade to polyline and text |
 | UCS + XDATA | coord_sys | Generate origin point |
 | —（XDATA） | position | Restore from XDATA `GSGI_POS` |
-| —（XDATA） | measure | Restore from XDATA (same as position) |
 
 ### 3.2 Mapping Example
 
@@ -251,7 +248,7 @@ GSGI `descriptions` do not directly correspond to DXF standard fields; they use 
 | `GSGI_PARAM` | param_pt parameters `{"curve_ref":"","t":0}` | POINT |
 | `GSGI_POS` | position entity full JSON | Non-graphical entities |
 | `GSGI_XREF` | xref file path `{"file_path":"..."}` | XREF |
-| `GSGI_REGION` | region_anno full JSON `{"area":0,"label":"","contained_entities":[],"operation":{}}` | Boundary mapped from polycurve entities |
+| `GSGI_REGION` | region_anno full JSON `{"area":0,"label":"","contained_entities":[],"operation":{},"fill":{}}` | Boundary mapped from polycurve entities; fill present for hatched HATCH |
 | `GSGI_CSYS` | coord_sys attributes `{"rotation":0}` | UCS |
 
 ### XDATA Format Example
@@ -300,7 +297,7 @@ For environments that do not support XDATA, a companion `.gsgi.desc.json` file c
 ## 5. Notes
 
 1. **point reference resolution**: GSGI→DXF direction requires recursive resolution of point.ref_pt chain to obtain final WCS coordinates; DXF→GSGI direction creates a point entity for each key coordinate
-2. **polycurve sampling**: HATCH/REGION_ANNO boundaries reference polycurve; DXF output requires sampling polycurve to closed LWPOLYLINE vertex sequence
+2. **polycurve sampling**: HATCH (from region_anno + fill) / REGION_ANNO boundaries reference polycurve; DXF output requires sampling polycurve to closed LWPOLYLINE vertex sequence
 3. **Invisible entities**: position has no graphical counterpart in DXF; all serialized to XDATA; auto-rebuilt on DXF load
 4. **Block definitions**: entities within block follow the same mapping rules as top level; nested entities (block_ref/xref) must not appear within block definitions
 5. **Custom entities**: custom_entity defaults to LWPOLYLINE + TEXT (properties to XDATA); custom mapping via extension plugins
