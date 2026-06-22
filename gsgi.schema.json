@@ -259,11 +259,16 @@
           "enum": ["model", "paper"],
           "default": "model"
         },
-            "scale": {
-              "type": "number",
-              "default": 1.0,
-              "description": "Render scale, only effective for text/dimension/table"
-            },
+        "scale": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Render scale, only effective for text/dimension/table"
+        },
+        "construction": {
+          "type": "boolean",
+          "default": false,
+          "description": "Mark as internal construction geometry (not user-created)"
+        },
         "description": { "type": "string" },
         "represent": {
           "oneOf": [
@@ -315,6 +320,10 @@
             "type": { "const": "point" },
             "point": { "$ref": "#/$defs/point" },
             "ref_pt": { "$ref": "#/$defs/idRef" },
+            "point_role": {
+              "type": "string",
+              "description": "Semantic role: construction / helper / etc."
+            },
             "represent": { "const": "self" },
             "ref_op": { "const": "offset" }
           },
@@ -704,7 +713,7 @@
             "type": { "const": "position" },
             "kind": {
               "type": "string",
-              "enum": ["constraint", "text", "relation"]
+              "enum": ["point", "constraint", "text", "relation"]
             },
             "ref_a": { "$ref": "#/$defs/idRef" },
             "ref_b": { "$ref": "#/$defs/idRef" },
