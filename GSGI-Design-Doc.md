@@ -344,17 +344,31 @@ A point consists of coordinates, containing two main parameters: its own coordin
 }
 ```
 
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `point` | Yes | — | Coordinate `[x, y]` |
-| `ref_pt` | No | — | References another entity's id. Actual coordinate determined by how the referenced entity's `ref_op` combines with this point's `[dx, dy]` |
+```json
+{
+  "id": "P3",
+  "type": "point",
+  "point": [50.0, 0.0],
+  "ref_pt": { "id": "CS1", "represent": "center", "ref_op": "link" },
+  "represent": "self",
+  "ref_op": "offset"
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `point` | `[number, number]` | Yes | — | Coordinate `[x, y]` |
+| `ref_pt` | `string \| object` | No | — | References another entity. String is the referenced entity id (backward compatible). Object form `{ "id": "CS1", "represent": "center", "ref_op": "link" }` where `id` is required, `represent` and `ref_op` are optional overrides for the referenced entity's corresponding fields. When omitted, the referenced entity's own values are used |
 | `represent` | Fixed | `"self"` | Own coordinate is the representative point, cannot be modified |
 | `ref_op` | Fixed | `"offset"` | Offset stacking when referenced, cannot be modified |
 
 **Coordinate Resolution Rules**:
 
 1. No `ref_pt`: `point` is used directly as WCS absolute coordinate
-2. Has `ref_pt`: Resolve the referenced entity B's representative point P_rep (per B's `represent`), then combine per B's `ref_op`.
+2. Has `ref_pt` (string form): Resolve the referenced entity B's representative point P_rep (per B's `represent`), then combine per B's `ref_op`.
+3. Has `ref_pt` (object form): Resolve the referenced entity B's representative point P_rep (use `ref_pt.represent` if present, otherwise B's own `represent`), then combine per `ref_pt.ref_op` (if present) or B's own `ref_op`.
+
+**Referenced Type Restriction**: When the referenced entity B's type is `point` or `param_pt`, its `represent` is fixed to `"self"` and `ref_op` is fixed to `"offset"`. Therefore in the `ref_pt` object, `represent` only allows `"self"` and `ref_op` only allows `"offset"`. Other values are invalid (silently fall back to the referenced entity's own values).
 
 > `point`'s `represent` / `ref_op` are fixed values (see table above), user cannot modify. Other entity types declare them via commonFields.
 
@@ -1258,6 +1272,7 @@ Declares how an entity reduces to a representative point. `represent` type: `str
 { "method": "corner",   "param": 0 }
 { "method": "bbox",     "which": "center" }
 { "method": "intersect", "curve_ref": "E2" }
+{ "method": "param",    "t": 0.25 }
 ```
 
 | method | Parameters | Meaning | Formula |
@@ -1265,6 +1280,7 @@ Declares how an entity reduces to a representative point. `represent` type: `str
 | `"corner"` | `param: int` (0‑based) | Take the param-th feature point in entity's definition sequence: line/arc 0=start 1=end; polyline/polyarc 0..(n-1)=vertices; spline_fit/spline_cv 0..(n-1)=fit/control points; polycurve 0..(n-1)=segment endpoints; rectangle 0=min 1=min→max 2=max 3=max→min | `P = entity.pointAt(param)` |
 | `"bbox"` | `which: "min" \| "max" \| "center" \| "top_left" \| "top_right" \| "bottom_left" \| "bottom_right"` | Bounding box feature point or corner | `P = bbox(geometry).which` |
 | `"intersect"` | `curve_ref: string` | Reference curve entity id | Intersection of this curve with reference curve; if multiple, take first along this curve's param; no intersection falls back to `"origin"` | `P = intersect(this, curve_ref)` |
+| `"param"` | `t: number` | Evaluate point on own curve at parameter `t`. `t` semantics identical to [§5.2 param_pt](#52-param_pt-curve-parameter-point): line/arc/spline_* normalized `[0, 1]`; polyline/polyarc open `[0, N]` closed `[0, N)`. Entities without `getCurve()` (text/block_ref etc.) fall back to `"origin"` | `P = curve.eval(t)` |
 
 ### 9.2 Combination Operation (ref_op)
 

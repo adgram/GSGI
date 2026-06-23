@@ -312,6 +312,22 @@
         { "$ref": "#/$defs/customEntity" }
       ]
     },
+    "refPtRef": {
+      "oneOf": [
+        { "$ref": "#/$defs/idRef" },
+        {
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "$ref": "#/$defs/idRef" },
+            "represent": { "type": "string" },
+            "ref_op": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "Reference to another entity. String is entity id (backward compatible). Object form { id, represent?, ref_op? } allows overriding represent/ref_op of the referenced entity."
+    },
     "pointEntity": {
       "allOf": [
         { "$ref": "#/$defs/commonFields" },
@@ -319,7 +335,7 @@
           "properties": {
             "type": { "const": "point" },
             "point": { "$ref": "#/$defs/point" },
-            "ref_pt": { "$ref": "#/$defs/idRef" },
+            "ref_pt": { "$ref": "#/$defs/refPtRef" },
             "point_role": {
               "type": "string",
               "description": "Semantic role: construction / helper / etc."
