@@ -359,6 +359,7 @@ A point consists of coordinates, containing two main parameters: its own coordin
 |-------|------|----------|---------|-------------|
 | `point` | `[number, number]` | Yes | — | Coordinate `[x, y]` |
 | `ref_pt` | `string \| object` | No | — | References another entity. String is the referenced entity id (backward compatible). Object form `{ "id": "CS1", "represent": "center", "ref_op": "link" }` where `id` is required, `represent` and `ref_op` are optional overrides for the referenced entity's corresponding fields. When omitted, the referenced entity's own values are used |
+| `point_role` | `string` | No | — | Semantic role. Values: `"construction"` (construction point, displayed as diamond), `"helper"` (helper point). When unset, displayed as normal cross point |
 | `represent` | Fixed | `"self"` | Own coordinate is the representative point, cannot be modified |
 | `ref_op` | Fixed | `"offset"` | Offset stacking when referenced, cannot be modified |
 
@@ -836,6 +837,7 @@ Region annotation defines a region's outline and area, and can associate entitie
 | `edges_refs` | Yes | — | Polycurve entity id array for closed boundary loops; first is outer boundary, subsequent are islands |
 | `area` | No | Auto-calculated | Area value (square units) |
 | `area_text` | No | Auto-formatted | Area text description |
+| `height` | No | `12` | Text height for `area_text`, scaled by `scale` factor |
 | `contained_entities` | No | — | Entity id list contained within the region |
 | `label` | No | — | Region label |
 | `fill` | No | — | Fill pattern (see [fill Object Structure](#fill-object-structure)) — when present, this region_anno acts as a hatch area |

@@ -264,11 +264,6 @@
           "default": 1.0,
           "description": "Render scale, only effective for text/dimension/table"
         },
-        "construction": {
-          "type": "boolean",
-          "default": false,
-          "description": "Mark as internal construction geometry (not user-created)"
-        },
         "description": { "type": "string" },
         "represent": {
           "oneOf": [
@@ -690,6 +685,7 @@
             },
             "area": { "type": "number" },
             "area_text": { "type": "string" },
+            "height": { "type": "number", "default": 12, "description": "Text height for area_text" },
             "contained_entities": {
               "type": "array",
               "items": { "$ref": "#/$defs/idRef" }

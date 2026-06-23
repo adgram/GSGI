@@ -55,7 +55,7 @@
   "id": "PC1",
   "type": "point",
   "point": [50.0, 50.0],
-  "construction": true
+  "point_role": "construction"
 }
 ```
 
