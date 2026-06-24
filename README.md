@@ -49,6 +49,16 @@ A GSGI file is a JSON object with the following top-level structure:
 
 For detailed format specification, see [GSGI设计文档.md](./GSGI设计文档.md) (Chinese), [GSGI-Design-Doc.md](./GSGI-Design-Doc.md) (English); DXF mapping rules: [GSGI-DXF映射规则.md](./GSGI-DXF映射规则.md) (Chinese), [GSGI-DXF-Mapping-Rules.md](./GSGI-DXF-Mapping-Rules.md) (English); JSON Schema: [gsgi.schema.json](./gsgi.schema.json).
 
+## 案例 / Examples
+
+### 1 平面几何  /  Geometry
+
+![平面几何](examples\平面几何\苏州数学-25-gsgi.png)
+
+### 2 规范图集 / Design
+
+![规范图集](examples\日照影响分析\日照影响分析-附图-gsgi.png)
+
 ## 许可 / License
 
 本项目基于 [MIT 许可证](./LICENSE)。

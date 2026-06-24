@@ -27,6 +27,11 @@
       "id": "labels",
       "color": 1,
       "description": "标注层"
+    },
+    {
+      "id": "guidelines",
+      "color": 8,
+      "description": "辅助线"
     }
   ],
   "text_styles": [],
@@ -36,19 +41,22 @@
     {
       "id": "PL_base_x",
       "type": "polyline",
-      "description": "基准线",
+      "layer": "labels",
+      "description": "轴线x",
       "points": [ [ -40, 0 ], [ 160, 0 ] ]
     },
     {
       "id": "PL_base_y",
       "type": "polyline",
-      "description": "基准线",
+      "layer": "labels",
+      "description": "轴线y",
       "points": [ [ 0, -30 ], [ 0, 50 ] ]
     },
     {
       "id": "P_coord_N",
       "type": "point",
       "visible": false,
+      "layer": "labels",
       "point": [0, 0],
       "ref_pt": { "id": "PL_base_y", "represent": { "method": "param", "t": 1 }, "ref_op": "link" },
       "point_role": "construction"
@@ -56,7 +64,8 @@
     {
       "id": "T_coord_N",
       "type": "text",
-      "description": "坐标说明",
+      "layer": "labels",
+      "description": "方向：北",
       "position_ref": "P_coord_N",
       "text": "北",
       "height": 3,
@@ -66,6 +75,7 @@
       "id": "P_coord_E",
       "type": "point",
       "visible": false,
+      "layer": "labels",
       "point": [0, 0],
       "ref_pt": { "id": "PL_base_x", "represent": { "method": "param", "t": 1 }, "ref_op": "link" },
       "point_role": "construction"
@@ -73,7 +83,8 @@
     {
       "id": "T_coord_E",
       "type": "text",
-      "description": "坐标说明",
+      "layer": "labels",
+      "description": "方向：东",
       "position_ref": "P_coord_E",
       "text": "东",
       "height": 3,
@@ -90,6 +101,7 @@
       "id": "PC_遮蔽建筑",
       "type": "polycurve",
       "visible": false,
+      "layer": "guidelines",
       "segments": [
         {
           "type": "curve_ref",
@@ -105,6 +117,7 @@
       "edges_refs": ["PC_遮蔽建筑"],
       "area": 0,
       "area_text": "遮挡建筑，高度100m",
+      "description": "遮挡建筑填充",
       "height": 3,
       "scale": 2
     },
@@ -112,7 +125,8 @@
       "id": "P_bbox_min",
       "type": "point",
       "visible": false,
-      "description": "包围矩形左下角（内联bbox）",
+      "layer": "guidelines",
+      "description": "包围矩形左下角",
       "point": [0, 0],
       "ref_pt": { "id": "PL_遮蔽建筑", "represent": { "method": "bbox", "which": "min" }, "ref_op": "link" },
       "point_role": "construction"
@@ -121,7 +135,8 @@
       "id": "P_bbox_max",
       "type": "point",
       "visible": false,
-      "description": "包围矩形右上角（内联bbox）",
+      "layer": "guidelines",
+      "description": "包围矩形右上角",
       "point": [0, 0],
       "ref_pt": { "id": "PL_遮蔽建筑", "represent": { "method": "bbox", "which": "max" }, "ref_op": "link" },
       "point_role": "construction"
@@ -145,6 +160,7 @@
     {
       "id": "T_C",
       "type": "text",
+      "layer": "labels",
       "position_ref": "P_C",
       "text": "C",
       "height": 3,
@@ -162,6 +178,7 @@
     {
       "id": "T_D",
       "type": "text",
+      "layer": "labels",
       "position_ref": "P_D",
       "text": "D",
       "height": 3,
@@ -179,6 +196,7 @@
     {
       "id": "T_M",
       "type": "text",
+      "layer": "labels",
       "position_ref": "P_M",
       "text": "M",
       "height": 3,
@@ -196,6 +214,7 @@
     {
       "id": "T_N",
       "type": "text",
+      "layer": "labels",
       "position_ref": "P_N",
       "text": "N",
       "height": 3,
@@ -204,7 +223,7 @@
     {
       "id": "P_D2",
       "type": "point",
-      "visible": true,
+      "layer": "guidelines",
       "point": [250, 170],
       "point_role": "construction",
       "visible": false
@@ -212,7 +231,7 @@
     {
       "id": "P_N2",
       "type": "point",
-      "visible": true,
+      "layer": "guidelines",
       "point": [0, 160],
       "ref_pt": { "id": "P_N"},
       "point_role": "construction",
@@ -221,7 +240,8 @@
     {
       "id": "C2",
       "type": "circle",
-      "layer": "geometry",
+      "layer": "guidelines",
+      "description": "日照影响分析的计算范围，150m或1.5倍建筑高度为半径",
       "center_ref": "P_N",
       "r": 150,
       "visible": false
@@ -229,15 +249,17 @@
     {
       "id": "L_DD2",
       "type": "line",
-      "layer": "geometry",
+      "layer": "guidelines",
       "start_ref": "P_D",
       "end_ref": "P_D2",
+      "description": "大寒日16时方位角控制线",
       "visible": false
     },
     {
       "id": "L_NN2",
       "type": "line",
-      "layer": "geometry",
+      "layer": "guidelines",
+      "description": "建筑向北150m投影点",
       "start_ref": "P_N",
       "end_ref": "P_N2",
       "visible": false
@@ -245,7 +267,7 @@
     {
       "id": "L_ND2",
       "type": "line",
-      "layer": "geometry",
+      "layer": "guidelines",
       "start_ref": "P_N",
       "end_ref": "P_D2",
       "visible": false
@@ -254,6 +276,7 @@
       "id": "P_arc_N",
       "type": "point",
       "point": [0, 0],
+      "layer": "guidelines",
       "ref_pt": { "id": "C2", "represent": { "method": "intersect", "curve_ref": "L_NN2" }, "ref_op": "link" },
       "point_role": "construction",
       "visible": false
@@ -262,6 +285,7 @@
       "id": "P_arc_D",
       "type": "point",
       "point": [0, 0],
+      "layer": "guidelines",
       "ref_pt": { "id": "C2", "represent": { "method": "intersect", "curve_ref": "L_DD2" }, "ref_op": "link" },
       "point_role": "construction",
       "visible": false
@@ -270,6 +294,7 @@
       "id": "P_arc_mid",
       "type": "point",
       "point": [0, 0],
+      "layer": "guidelines",
       "ref_pt": { "id": "C2", "represent": { "method": "intersect", "curve_ref": "L_ND2" }, "ref_op": "link" },
       "point_role": "construction",
       "visible": false
@@ -277,7 +302,7 @@
     {
       "id": "A_D2N2",
       "type": "arc",
-      "layer": "geometry",
+      "description": "日照影响范围轮廓",
       "start_ref": "P_arc_D",
       "mid_ref": "P_arc_mid",
       "end_ref": "P_arc_N"
@@ -285,28 +310,28 @@
     {
       "id": "L_DA2",
       "type": "line",
-      "layer": "geometry",
+      "description": "大寒日16时方位角控制线（边界）",
       "start_ref": "P_D",
       "end_ref": "P_arc_D"
     },
     {
       "id": "L_NA2",
       "type": "line",
-      "layer": "geometry",
+      "description": "半径",
       "start_ref": "P_N",
       "end_ref": "P_arc_N"
     },
     {
       "id": "L_NDA2",
       "type": "line",
-      "layer": "geometry",
+      "description": "半径",
       "start_ref": "P_N",
       "end_ref": "P_arc_D"
     },
     {
       "id": "P_C2",
       "type": "point",
-      "visible": true,
+      "layer": "guidelines",
       "point": [-110, 170],
       "point_role": "construction",
       "visible": false
@@ -314,7 +339,7 @@
     {
       "id": "P_M2",
       "type": "point",
-      "visible": true,
+      "layer": "guidelines",
       "point": [0, 160],
       "ref_pt": { "id": "P_M"},
       "point_role": "construction",
@@ -323,7 +348,8 @@
     {
       "id": "C1",
       "type": "circle",
-      "layer": "geometry",
+      "description":  "日照影响分析的计算范围，150m或1.5倍建筑高度为半径",
+      "layer": "guidelines",
       "center_ref": "P_M",
       "r": 150,
       "visible": false
@@ -331,7 +357,8 @@
     {
       "id": "L_CC2",
       "type": "line",
-      "layer": "geometry",
+      "layer": "guidelines",
+      "description": "大寒日8时方位角控制线",
       "start_ref": "P_C",
       "end_ref": "P_C2",
       "visible": false
@@ -339,7 +366,8 @@
     {
       "id": "L_MM2",
       "type": "line",
-      "layer": "geometry",
+      "layer": "guidelines",
+      "description": "建筑向北150m投影点",
       "start_ref": "P_M",
       "end_ref": "P_M2",
       "visible": false
@@ -347,7 +375,7 @@
     {
       "id": "L_MC2",
       "type": "line",
-      "layer": "geometry",
+      "layer": "guidelines",
       "start_ref": "P_M",
       "end_ref": "P_C2",
       "visible": false
@@ -356,6 +384,7 @@
       "id": "P_arc_C",
       "type": "point",
       "point": [0, 0],
+      "layer": "guidelines",
       "ref_pt": { "id": "C1", "represent": { "method": "intersect", "curve_ref": "L_CC2" }, "ref_op": "link" },
       "point_role": "construction",
       "visible": false
@@ -364,6 +393,7 @@
       "id": "P_arc_M",
       "type": "point",
       "point": [0, 0],
+      "layer": "guidelines",
       "ref_pt": { "id": "C1", "represent": { "method": "intersect", "curve_ref": "L_MM2" }, "ref_op": "link" },
       "point_role": "construction",
       "visible": false
@@ -372,6 +402,7 @@
       "id": "P_arc_mid_L",
       "type": "point",
       "point": [0, 0],
+      "layer": "guidelines",
       "ref_pt": { "id": "C1", "represent": { "method": "intersect", "curve_ref": "L_MC2" }, "ref_op": "link" },
       "point_role": "construction",
       "visible": false
@@ -379,7 +410,7 @@
     {
       "id": "A_C2M2",
       "type": "arc",
-      "layer": "geometry",
+      "description": "日照影响范围轮廓",
       "start_ref": "P_arc_M",
       "mid_ref": "P_arc_mid_L",
       "end_ref": "P_arc_C"
@@ -387,28 +418,28 @@
     {
       "id": "L_CA1",
       "type": "line",
-      "layer": "geometry",
+      "description": "大寒日8时方位角控制线（边界）",
       "start_ref": "P_arc_C",
       "end_ref": "P_C"
     },
     {
       "id": "L_MA",
       "type": "line",
-      "layer": "geometry",
+      "description": "半径",
       "start_ref": "P_M",
       "end_ref": "P_arc_M"
     },
     {
       "id": "L_MCA",
       "type": "line",
-      "layer": "geometry",
+      "description": "半径",
       "start_ref": "P_M",
       "end_ref": "P_arc_C"
     },
     {
       "id": "L_M2N2",
       "type": "line",
-      "layer": "geometry",
+      "description": "北向边界",
       "start_ref": "P_arc_N",
       "end_ref": "P_arc_M"
     },
@@ -422,6 +453,7 @@
     {
       "id": "PC_阴影边界",
       "type": "polycurve",
+      "layer": "guidelines",
       "visible": false,
       "closed": true,
       "segments": [
@@ -438,9 +470,27 @@
       "type": "region_anno",
       "edges_refs": ["PC_阴影边界"],
       "area": 0,
-      "area_text": "建筑阴影范围",
+      "area_text": "日照影响分析的计算范围",
       "height": 3,
       "scale": 2
+    },
+    {
+      "id": "D_NN",
+      "type": "dimension",
+      "layer": "labels",
+      "description": "半径 150m或1.5倍建筑高度",
+      "p1_ref": "P_N",
+      "p2_ref": "P_arc_N",
+      "measurement": 150
+    },
+    {
+      "id": "D_ND",
+      "type": "dimension",
+      "layer": "labels",
+      "description": "半径 150m或1.5倍建筑高度",
+      "p1_ref": "P_N",
+      "p2_ref": "P_arc_D",
+      "measurement": 150
     }
   ],
   "groups": []
