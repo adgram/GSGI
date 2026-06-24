@@ -53,11 +53,11 @@ For detailed format specification, see [GSGI设计文档.md](./GSGI设计文档.
 
 ### 1 平面几何  /  Geometry
 
-![平面几何](examples\平面几何\苏州数学-25-gsgi.png)
+![平面几何](examples/平面几何/苏州数学-25-gsgi.png)
 
 ### 2 规范图集 / Design
 
-![规范图集](examples\日照影响分析\日照影响分析-附图-gsgi.png)
+![规范图集](examples/日照影响分析/日照影响分析-附图-gsgi.png)
 
 ## 许可 / License
 
